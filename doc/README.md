@@ -163,9 +163,9 @@ response functions have been around for many years and have withstood the test o
 
 2. Sloane, N. J. A. ; et. al. *Tables of Spherical Codes with Icosahedral Symmetry*. 1994. Published electronically at http://NeilSloane.com/icosahedral.codes
 
-2. Conty, Alejandro ; Kulla, Christopher. *Production Friendly Microfacet Sheen BRDF*. 2017. ACM SIGGRAPH Course: *Physically Based Shading in Theory and Practice*, Article 7, p. 1-8. https://doi.org/10.1145/3084873.3084893
+2. Conty, Alejandro ; Kulla, Christopher. *Production Friendly Microfacet Sheen BRDF*. 2017 ACM SIGGRAPH Course: *Physically Based Shading in Theory and Practice*, Article 7, p. 1-8. https://doi.org/10.1145/3084873.3084893
 
-3. Zeltner, Tizian ; et. al. *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*. 2022. ACM SIGGRAPH Talks, Article 7, p. 1-2. https://doi.org/10.1145/3532836.3536240
+3. Zeltner, Tizian ; et. al. *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*. 2022 ACM SIGGRAPH Talks, Article 7, p. 1-2. https://doi.org/10.1145/3532836.3536240
 
 4. Koenderink, Jan ; Pont, Sylvia. *The Secret of Velvety Skin*. 2003. Machine Vision and Applications, Vol. 14, p. 260-268. https://doi.org/10.1007/s00138-002-0089-7
 
@@ -173,6 +173,6 @@ response functions have been around for many years and have withstood the test o
 
 6. Ashikmin, Michael ; et. al. *A Microfacet-Based BRDF Generator*. 2000. Proceedings of the 27th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH '00), p. 65-74. https://doi.org/10.1145/344779.344814
 
-7. Jendersie, Johannes ; et. al. *An Approximate Mie Scattering Function for Fog and Cloud Rendering*. 2023. ACM SIGGRAPH Talks, Article 47, p. 1-2. https://doi.org/10.1145/3587421.3595409
+7. Jendersie, Johannes ; et. al. *An Approximate Mie Scattering Function for Fog and Cloud Rendering*. 2023 ACM SIGGRAPH Talks, Article 47, p. 1-2. https://doi.org/10.1145/3587421.3595409
   
 [Top](#Top)
