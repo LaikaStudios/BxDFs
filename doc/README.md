@@ -100,7 +100,7 @@ this microfacet distribution model is designed to simulate the back-scattering p
 Rather than providing an implementation of this response, I rely on the existing [LamaSheen](https://rmanwiki.pixar.com/display/REN25/LamaSheen) node from [RenderMan 25](https://rmanwiki.pixar.com/display/REN25/RenderMan+25+Documentation), which I'm told implements this response model.
 
 Given its lack of forward scattering and general absense of any secondary scattering effects in its appearance,
-I find this response to be inferior to [Prater Fuzz](prater-fuzz). However, it's clearly not without merit, and a combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be quite nice.
+I find this response to be inferior to [Prater Fuzz](prater-fuzz). However, it's clearly not without merit, and combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be quite nice.
 
 [Top](#Top)
 
