@@ -1,0 +1,98 @@
+<!--
+ *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *
+ *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
+ *  or the MIT license http://opensource.org/licenses/MIT, at your option.
+ *
+ *  This program may not be copied, modified, or distributed except according to those terms.
+-->
+<args format = "1.0">
+
+    <shaderType> <tag value = "bxdf"/> </shaderType>
+
+    <param name = "Notes"
+        connectable = "false"
+        type = "string"
+        default = "">
+        <tags> <tag value = "string"/> </tags>
+        <help>
+            Simulates the presence of a surface boundary layer consisting
+            of fibers oriented perpendicularly to the surface: e.g. velvet.
+            Uses the
+            <a href='http://dx.doi.org/10.1007/s00138-002-0089-7'>Koenderink-Pont asperity</a>
+            response model.
+        </help>
+    </param>
+
+    <param name = "Gain"
+        type = "float"
+        slider = "true" slidermin = "0.0" slidermax = "4.0" slidercenter = "1.0"
+        default = "1.0">
+        <tags> <tag value = "float"/> </tags>
+        <help>
+            Adjusts the <b>Gain</b> of the response.
+        </help>
+    </param>
+
+    <param name = "Color"
+        type = "color"
+        default = "0.5 0.5 0.5">
+        <tags> <tag value = "color"/> </tags>
+        <help>
+            The response <b>Color</b>.
+        </help>
+    </param>
+
+    <param name = "Orientation"
+        label = "Orientation (Nn)"
+        type = "normal"
+        default = "0 0 0">
+        <tags> <tag value = "normal"/> </tags>
+        <help>
+            The fibers' <b>Orientation</b>.
+            The default is to use the surface normal, but you can
+            vary this to add a "brushed" appearance to the fibers.
+        </help>
+    </param>
+
+    <param name = "Length"
+        type = "float"
+        slider = "true" slidermin = "0.0" slidermax = "1.0" slidercenter = "0.1"
+        default = "1.0">
+        <tags>
+            <tag value = "float"/>
+        </tags>
+        <help>
+            The <b>Length</b> of the fibers, specified as
+            a percentage of the scattering mean free path.
+        </help>
+    </param>
+
+    <param name = "Presence"
+        readOnly = "true"
+        type = "float"
+        default = "1.0">
+        <tags> <tag value = "float"/> </tags>
+        <help>
+            <b>Presence</b> can be used to cut away portions of the surface:
+            <br/>
+            <br/><i>0</i> results in no surface.
+            <br/><i>1</i> leaves the surface alone.
+            <p>
+            This value should ideally be binary: <i>0</i> or <i>1.</i>
+            Values between 0 and 1 will produce more sampling noise.
+            </p>
+        </help>
+    </param>
+
+    <param name = "Socket"
+        readOnly = "true"
+        type = "int"
+        default = "0">
+        <tags> <tag value = "int"/> </tags>
+        <help>
+            Connect a shading node's <b>Plug</b> output here in order
+            to execute that node and any shading tree connected to it.
+        </help>
+    </param>
+</args>

@@ -1,0 +1,95 @@
+<!--
+ *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *
+ *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
+ *  or the MIT license http://opensource.org/licenses/MIT, at your option.
+ *
+ *  This program may not be copied, modified, or distributed except according to those terms.
+-->
+<args format = "1.0">
+
+    <shaderType> <tag value = "bxdf"/> </shaderType>
+
+    <param name = "Notes"
+        connectable = "false"
+        type = "string"
+        default = "">
+        <tags> <tag value = "string"/> </tags>
+        <help>
+            Simulates the presence of a scattering medium in a boundary
+            layer of the surface, like dust or a random jumble of fibers.
+            Uses the
+            <a href='http://dx.doi.org/10.1086/144246'>Henyey-Greenstein</a>
+            response model.
+        </help>
+    </param>
+
+    <param name = "Gain"
+        type = "float"
+        slider = "true" slidermin = "0.0" slidermax = "4.0" slidercenter = "1.0"
+        default = "1.0">
+        <tags> <tag value = "float"/> </tags>
+        <help>
+            Adjusts the <b>Gain</b> of the response.
+        </help>
+    </param>
+
+    <param name = "Color"
+        type = "color"
+        default = "0.5 0.5 0.5">
+        <tags> <tag value = "color"/> </tags>
+        <help>
+            The response <b>Color</b>.
+        </help>
+    </param>
+
+    <param name = "Direction"
+        connectable = "false"
+        type = "float"
+        slider = "true" slidermin = "-0.5" slidermax = "1"
+        default = "0.5">
+        <tags>
+            <tag value = "float"/>
+        </tags>
+        <help>
+            The phase function asymmetry parameter (a.k.a. Henyey-Greenstein <i>g</i> parameter).
+            This controls the degree of forward to backward scattering.
+            <br/><br/>
+            <b>+</b> values produce forward scattering (brighter when looking toward the light):
+            typical dust-like scattering behavior.
+            <br/><br/>
+            <b>–</b> values produce back scattering (brighter when viewed from the same side as the light):
+            retro-reflection. This is atypical of natural scattering media.
+            <br/><br/>
+            Zero produces isotropic scattering.
+        </help>
+    </param>
+
+    <param name = "Presence"
+        readOnly = "true"
+        type = "float"
+        default = "1.0">
+        <tags> <tag value = "float"/> </tags>
+        <help>
+            <b>Presence</b> can be used to cut away portions of the surface:
+            <br/>
+            <br/><i>0</i> results in no surface.
+            <br/><i>1</i> leaves the surface alone.
+            <p>
+            This value should ideally be binary: <i>0</i> or <i>1.</i>
+            Values between 0 and 1 will produce more sampling noise.
+            </p>
+        </help>
+    </param>
+
+    <param name = "Socket"
+        readOnly = "true"
+        type = "int"
+        default = "0">
+        <tags> <tag value = "int"/> </tags>
+        <help>
+            Connect a shading node's <b>Plug</b> output here in order
+            to execute that node and any shading tree connected to it.
+        </help>
+    </param>
+</args>
