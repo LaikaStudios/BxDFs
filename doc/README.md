@@ -123,7 +123,7 @@ phase function when used for this purpose.
 It is a purely empirical model based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
 
 It uses a polynomial normalization function fitted to numerically integrated response intensities from
-a set of uniformly spaced and distributed spherical sampling directions.
+a set of uniformly spaced and distributed spherical sampling directions[<sup>2</sup>](#references).
 The normalization function has not been independently verified, although it appears to be working as intended.
 An adaptation of Henyey-Greenstein[<sup>1</sup>](#references) sample generation was initially used, but was found to be a much poorer choice than simple uniform sampling.
 
