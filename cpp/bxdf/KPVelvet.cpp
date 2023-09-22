@@ -28,7 +28,7 @@ the plugin with the renderer and integrator, including evaluation
 of its user parameters and their shading network connections.
 ==================================================================
 */
-class bxdf_KPFuzz : public RixBxdfFactory
+class bxdf_KPVelvet : public RixBxdfFactory
 {
   private:
 
@@ -79,8 +79,8 @@ class bxdf_KPFuzz : public RixBxdfFactory
 
   public:
 
-    bxdf_KPFuzz() {}
-    ~bxdf_KPFuzz() {}
+    bxdf_KPVelvet() {}
+    ~bxdf_KPVelvet() {}
 
     // The parameter table specifies the parameter name and type of any
     // parameters the plugin wants to make use of. The parameters and
@@ -130,7 +130,7 @@ class bxdf_KPFuzz : public RixBxdfFactory
         instanceData->freefunc = NULL;
 
         // Allocate new memory for this plugin's per-instance data.
-        auto pluginData = new bxdf_KPFuzz::pluginInstanceData;
+        auto pluginData = new bxdf_KPVelvet::pluginInstanceData;
         if( !pluginData ) return;
 
         // Set this plugin's (presence/opacity/interior) hints
@@ -165,14 +165,14 @@ class bxdf_KPFuzz : public RixBxdfFactory
         // Set the InstanceData struct members to access this plugin's new per-instance data.
         instanceData->datalen = sizeof( *pluginData );
         instanceData->data = static_cast< void* >( pluginData );
-        instanceData->freefunc = bxdf_KPFuzz::pluginInstanceData::Delete;
+        instanceData->freefunc = bxdf_KPVelvet::pluginInstanceData::Delete;
     }
 
     // GetInstanceHints() provides information to the integrator
     // about this bxdf's presence/opacity/interior computations.
     int GetInstanceHints( void* data ) const
     {
-        if( data ) return static_cast< bxdf_KPFuzz::pluginInstanceData* >( data )->poiHints;
+        if( data ) return static_cast< bxdf_KPVelvet::pluginInstanceData* >( data )->poiHints;
         else return k_TriviallyOpaque;
     }
 
@@ -220,33 +220,33 @@ global variables of this plugin.
 */
 // Declare one RixBXLobeSampled and RixBXLobeTraits pair of variables per response.
 // This data type contains information about one response only.
-static RixBXLobeSampled  sg_KPFuzz_LS;
+static RixBXLobeSampled  sg_KPVelvet_LS;
 // This data type can contain any number of responses. Used to create/define sets of responses.
-static RixBXLobeTraits   sg_KPFuzz_LT;
+static RixBXLobeTraits   sg_KPVelvet_LT;
 
 // Synchronize() sets the Lobe variables.
 // This can't be done statically since RixBXLookupLobeByName() requires the
 // Light Path Expression system which is not available until k_RixSCRenderBegin.
-void bxdf_KPFuzz::Synchronize( RixContext& ctx, RixSCSyncMsg syncMsg, const RixParameterList* pList )
+void bxdf_KPVelvet::Synchronize( RixContext& ctx, RixSCSyncMsg syncMsg, const RixParameterList* pList )
 {
     if( syncMsg != k_RixSCRenderBegin ) return;
 
-    // Query the Light Path Expression (LPE) entry for the "KPFuzz"
+    // Query the Light Path Expression (LPE) entry for the "KPVelvet"
     // response (specified in the rendermn.ini file) and set its traits.
     // Each response will require its own static global variables and
     // RixBXLookupLobeByName() and RixBXLobeTraits() calls to set them.
-    // rendermn.ini entry: /prman/lpe/specular6  KPFuzz
+    // rendermn.ini entry: /prman/lpe/specular6  KPVelvet
     // LPE: color lpe:CS6.*[<L.>O]
-    sg_KPFuzz_LS = RixBXLookupLobeByName( ctx,
+    sg_KPVelvet_LS = RixBXLookupLobeByName( ctx,
                         false, // not discrete ⇒ samples over a solid angle.
                         true,  // specular ⇒ not diffuse.
                         true,  // reflected scattering ⇒ not transmitted.
                         false, // not a user response ⇒ standard (specular or diffuse).
                         0,     // response "id" number. not used by prman or LPE.
-                        "KPFuzz" // The response's Name (used in rendermn.ini).
+                        "KPVelvet" // The response's Name (used in rendermn.ini).
                         );
 
-    sg_KPFuzz_LT = RixBXLobeTraits( sg_KPFuzz_LS );
+    sg_KPVelvet_LT = RixBXLobeTraits( sg_KPVelvet_LS );
 }
 
 
@@ -312,7 +312,7 @@ class BxdfClosure : public RixBxdf
         // Intersect the response(s) wanted by the integrator (lobesWanted)
         // with the response(s) this bxdf produces. The result defines the set
         // of responses we need to compute in the BxdfClosure::*Sample() methods.
-        bxdfLobes &= sg_KPFuzz_LT; // Additional response sg_*_LT values are | together.
+        bxdfLobes &= sg_KPVelvet_LT; // Additional response sg_*_LT values are | together.
 
         // Save some shading context data in the BxdfClosure's member
         // variables that we'll need later in its *Sample() methods.
@@ -338,7 +338,7 @@ class BxdfClosure : public RixBxdf
 
     // Inline the implementation of this plugin's BxdfClosure methods.
     // These define this bxdf's response interactions with the integrator.
-    #include "bxdf/KPFuzzSampling.inl"
+    #include "bxdf/KPVelvetSampling.inl"
 };
 
 
@@ -352,7 +352,7 @@ and consider that the RixBxdf lifetime is under control of the integrator.
 Such state includes any needed parameter values or built-in variables.
 ===============================================================================
 */
-RixBxdf* bxdf_KPFuzz::BeginScatter
+RixBxdf* bxdf_KPVelvet::BeginScatter
 (
     const RixShadingContext* sCtx,
     const RixBXLobeTraits&   lobesWanted, // by the integrator, per bxdf closure.
@@ -362,7 +362,7 @@ RixBxdf* bxdf_KPFuzz::BeginScatter
 )
 {
     // This plugin's per-instance data.
-    auto  pluginData = static_cast< bxdf_KPFuzz::pluginInstanceData* >( data );
+    auto  pluginData = static_cast< bxdf_KPVelvet::pluginInstanceData* >( data );
 
     // Evaluate the Socket parameter to trigger connected node evaluation.
     const RtInt*  Socket;
@@ -414,7 +414,7 @@ RixBxdf* bxdf_KPFuzz::BeginScatter
     return bxdf;
 }
 // Releases the RixBxdf object created by BeingScatter().
-void bxdf_KPFuzz::EndScatter( RixBxdf* ) {}
+void bxdf_KPVelvet::EndScatter( RixBxdf* ) {}
 
 
 /*
@@ -423,7 +423,7 @@ Returns a RixOpacity object that encapsulates
 this bxdf's presence and/or opacity behavior.
 ==============================================
 */
-RixOpacity* bxdf_KPFuzz::BeginOpacity
+RixOpacity* bxdf_KPVelvet::BeginOpacity
 (
     const RixShadingContext* sCtx,
     RixSCShadingMode         shadingMode,
@@ -432,7 +432,7 @@ RixOpacity* bxdf_KPFuzz::BeginOpacity
 )
 {
     // This plugin's per-instance data.
-    auto  pluginData = static_cast< bxdf_KPFuzz::pluginInstanceData* >( data );
+    auto  pluginData = static_cast< bxdf_KPVelvet::pluginInstanceData* >( data );
 
     // Evaluate the Presence parameter and determine whether it is varying or uniform.
     const RtFloat*  Presence = NULL;
@@ -453,7 +453,7 @@ RixOpacity* bxdf_KPFuzz::BeginOpacity
     else return NULL;
 }
 // Releases the RixOpacity object created by BeingOpacity().
-void bxdf_KPFuzz::EndOpacity( RixOpacity* ) {}
+void bxdf_KPVelvet::EndOpacity( RixOpacity* ) {}
 
 
 /*
@@ -463,10 +463,10 @@ Entrypoints to this plugin from the renderer.
 */
 extern "C" PRMANEXPORT RixBxdfFactory* CreateRixBxdfFactory( RtConstString )
 {
-    return new bxdf_KPFuzz();
+    return new bxdf_KPVelvet();
 }
 
 extern "C" PRMANEXPORT void DestroyRixBxdfFactory( RixBxdfFactory* bFac )
 {
-    delete static_cast< bxdf_KPFuzz* >( bFac );
+    delete static_cast< bxdf_KPVelvet* >( bFac );
 }

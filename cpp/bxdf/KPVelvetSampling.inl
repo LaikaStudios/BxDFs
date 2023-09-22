@@ -179,7 +179,7 @@ void GenerateSample
 
     const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
 
-    RtColorRGB*  KPFuzzWeight = NULL;
+    RtColorRGB*  KPVelvetWeight = NULL;
 
     for( int i=0; i < numPts; i++ )
     {
@@ -187,11 +187,11 @@ void GenerateSample
 
         const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted[i];
 
-        const bool  doKPFuzz = ( lobesToConsider & sg_KPFuzz_LT ).HasAny();
-        if( doKPFuzz )
+        const bool  doKPVelvet = ( lobesToConsider & sg_KPVelvet_LT ).HasAny();
+        if( doKPVelvet )
         {
             // Create the sample weight array for this response, if needed.
-            if( !KPFuzzWeight ) KPFuzzWeight = lobeWeights.AddActiveLobe( sg_KPFuzz_LS );
+            if( !KPVelvetWeight ) KPVelvetWeight = lobeWeights.AddActiveLobe( sg_KPVelvet_LS );
 
             // Initialize any data needed to compute the response.
             const RtColorRGB Cs = Color[i]*Gain[i];
@@ -199,9 +199,9 @@ void GenerateSample
             const RtNormal3  wn = Orientation[i];
             const RtVector3  wo = Vn[i];
 
-            if( KPGenerate( Cs, lm, wn, wo, xi[i], wi[i], fPdf[i], rPdf[i], KPFuzzWeight[i] ))
+            if( KPGenerate( Cs, lm, wn, wo, xi[i], wi[i], fPdf[i], rPdf[i], KPVelvetWeight[i] ))
             {
-                lobeGenerated[i] = sg_KPFuzz_LS;
+                lobeGenerated[i] = sg_KPVelvet_LS;
             }
         }
     }
@@ -228,7 +228,7 @@ void EvaluateSample
 {
     const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
 
-    RtColorRGB*  KPFuzzWeight = NULL;
+    RtColorRGB*  KPVelvetWeight = NULL;
 
     for( int i=0; i < numPts; i++ )
     {
@@ -236,8 +236,8 @@ void EvaluateSample
 
         const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted[i];
 
-        const bool  doKPFuzz = ( lobesToConsider & sg_KPFuzz_LT ).HasAny();
-        if( doKPFuzz )
+        const bool  doKPVelvet = ( lobesToConsider & sg_KPVelvet_LT ).HasAny();
+        if( doKPVelvet )
         {
             // Initialize any data needed to compute the response.
             const RtColorRGB Cs = Color[i]*Gain[i];
@@ -245,11 +245,11 @@ void EvaluateSample
             const RtNormal3  wn = Orientation[i];
             const RtVector3  wo = Vn[i];
 
-            if( !KPFuzzWeight ) KPFuzzWeight = lobeWeights.AddActiveLobe( sg_KPFuzz_LS );
+            if( !KPVelvetWeight ) KPVelvetWeight = lobeWeights.AddActiveLobe( sg_KPVelvet_LS );
 
-            if( KPEvaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPFuzzWeight[i] ))
+            if( KPEvaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPVelvetWeight[i] ))
             {
-                lobesEvaluated[i] = sg_KPFuzz_LT;
+                lobesEvaluated[i] = sg_KPVelvet_LT;
             }
         }
     }
@@ -278,7 +278,7 @@ void EvaluateSamplesAtIndex
 {
     const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
 
-    RtColorRGB*  KPFuzzWeight = NULL;
+    RtColorRGB*  KPVelvetWeight = NULL;
 
     for( int i=0; i < nSamps; i++ )
     {
@@ -286,19 +286,19 @@ void EvaluateSamplesAtIndex
 
         const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted;
 
-        const bool  doKPFuzz = ( lobesToConsider & sg_KPFuzz_LT ).HasAny();
-        if( doKPFuzz )
+        const bool  doKPVelvet = ( lobesToConsider & sg_KPVelvet_LT ).HasAny();
+        if( doKPVelvet )
         {
-            if( !KPFuzzWeight ) KPFuzzWeight = lobeWeights.AddActiveLobe( sg_KPFuzz_LS );
+            if( !KPVelvetWeight ) KPVelvetWeight = lobeWeights.AddActiveLobe( sg_KPVelvet_LS );
 
             const RtColorRGB Cs = Color[scIndex]*Gain[scIndex];
             const RtFloat    lm = Length[scIndex];
             const RtNormal3  wn = Orientation[scIndex];
             const RtVector3  wo = Vn[scIndex];
 
-            if( KPEvaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPFuzzWeight[i] ))
+            if( KPEvaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPVelvetWeight[i] ))
             {
-                lobesEvaluated[i] = sg_KPFuzz_LT;
+                lobesEvaluated[i] = sg_KPVelvet_LT;
             }
         }
     }
