@@ -21,9 +21,9 @@ First developed at [Pixar](https://www.pixar.com) in the late 1990s for the [REY
 the [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter) models have never been published.
 Since their creation they have undergone continuous evolution and periodic transformation as [RenderMan](https://renderman.pixar.com/)'s capabilities and implementation details have evolved. 
 
-These most recent incarnations were developed in concert so they each use the same simple and intuitive **Direction** and **Dispersion** control parameters.
-**Direction** is analogous to the Henyey-Greenstein[<sup>1</sup>](#references) *g* parameter,
-and **Dispersion** controls the width of the response lobe, similar to a *roughness* parameter.
+These most recent incarnations were developed in concert so they each use the same simple and intuitive *Direction* and *Dispersion* control parameters.
+*Direction* is analogous to the Henyey-Greenstein[<sup>1</sup>](#references) *g* parameter,
+and *Dispersion* controls the width of the response lobe, similar to a *roughness* parameter.
 
 Other responses are provided as points of comparison.
 
@@ -38,6 +38,7 @@ Other responses are provided as points of comparison.
     1. [Henyey-Greenstein Scatter](#henyey-greenstein-scatter)
 1. [Conclusions](#conclusions)
 1. [References](#references)
+1. [Parameter Wedge Imagess](#parameter-wedge-images)
 
 # Fuzz
 
@@ -75,7 +76,7 @@ At some point I hope to implement the more promising of these for comparison.
 ## Koenderink-Pont Velvet
 ![Koenterink-Pont](media/KoenderinkPontVelvet.jpg)
 
-Created in 2002, *The Secret of Velvety Skin*[<sup>5</sup>](#references)
+Created in 2002, *The Secret of Velvety Skin* [<sup>5</sup>](#references)
 contained, as far as I'm aware, the first published model to directly address this type of response with sufficient visual quality and in a manner that was practical for the production-constrained computational resources of the time.
 The paper also includes some interesting observations about human visual perception, which is a stimulating theme of these researchers' papers.
 However, comparisons with [Prater Fuzz](#prater-fuzz) showed this response function to be inferior in both appearance and range of control.
@@ -83,7 +84,7 @@ Also, it is strongly biased toward forward scattering, so it is useful primarily
 
 Its implementation uses uniform sample generation, which is entirely adequate for making visual quality and usability assessments.
 
-Other papers from this time period that addressed this response type are *Predicting Reflectance Functions from Complex Surfaces*[<sup>6</sup>](#references) and *A Microfacet-Based BRDF Generator*[<sup>7</sup>](#references).
+Other papers from this time period that addressed this response type are *Predicting Reflectance Functions from Complex Surfaces* [<sup>6</sup>](#references) and *A Microfacet-Based BRDF Generator* [<sup>7</sup>](#references).
 However, the former was not a practical method for production use,
 and the visual qualities of both were inferior to the [Prater Fuzz](#prater-fuzz) response.
 
@@ -100,7 +101,7 @@ this microfacet distribution model is designed to simulate the back-scattering p
 Rather than providing an implementation of this response, I rely on the existing [LamaSheen](https://rmanwiki.pixar.com/display/REN25/LamaSheen) node from [RenderMan 25](https://rmanwiki.pixar.com/display/REN25/RenderMan+25+Documentation), which I'm told implements this response model.
 
 Given its lack of forward scattering and general absense of any secondary scattering effects in its appearance,
-I find this response to be inferior to [Prater Fuzz](prater-fuzz). However, it's clearly not without merit, and combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be quite nice.
+I find this response to be inferior to [Prater Fuzz](prater-fuzz). However, it's clearly not without merit, and a combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be quite nice.
 
 [Top](#Top)
 
@@ -123,7 +124,7 @@ phase function when used for this purpose.
 It is a purely empirical model based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
 
 It uses a polynomial normalization function fitted to numerically integrated response intensities from
-a set of uniformly spaced and distributed spherical sampling directions[<sup>2</sup>](#references).
+a set of uniformly spaced and distributed spherical sampling directions.
 The normalization function has not been independently verified, although it appears to be working as intended.
 An adaptation of Henyey-Greenstein[<sup>1</sup>](#references) sample generation was initially used, but was found to be a much poorer choice than simple uniform sampling.
 
@@ -163,9 +164,9 @@ response functions have been around for many years and have withstood the test o
 
 2. Sloane, N. J. A. ; et. al. *Tables of Spherical Codes with Icosahedral Symmetry*. 1994. Published electronically at http://NeilSloane.com/icosahedral.codes
 
-2. Conty, Alejandro ; Kulla, Christopher. *Production Friendly Microfacet Sheen BRDF*. 2017 ACM SIGGRAPH Course: *Physically Based Shading in Theory and Practice*, Article 7, p. 1-8. https://doi.org/10.1145/3084873.3084893
+2. Conty, Alejandro ; Kulla, Christopher. *Production Friendly Microfacet Sheen BRDF*. 2017. ACM SIGGRAPH Course: *Physically Based Shading in Theory and Practice*, Article 7, p. 1-8. https://doi.org/10.1145/3084873.3084893
 
-3. Zeltner, Tizian ; et. al. *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*. 2022 ACM SIGGRAPH Talks, Article 7, p. 1-2. https://doi.org/10.1145/3532836.3536240
+3. Zeltner, Tizian ; et. al. *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*. 2022. ACM SIGGRAPH Talks, Article 7, p. 1-2. https://doi.org/10.1145/3532836.3536240
 
 4. Koenderink, Jan ; Pont, Sylvia. *The Secret of Velvety Skin*. 2003. Machine Vision and Applications, Vol. 14, p. 260-268. https://doi.org/10.1007/s00138-002-0089-7
 
@@ -173,6 +174,30 @@ response functions have been around for many years and have withstood the test o
 
 6. Ashikmin, Michael ; et. al. *A Microfacet-Based BRDF Generator*. 2000. Proceedings of the 27th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH '00), p. 65-74. https://doi.org/10.1145/344779.344814
 
-7. Jendersie, Johannes ; et. al. *An Approximate Mie Scattering Function for Fog and Cloud Rendering*. 2023 ACM SIGGRAPH Talks, Article 47, p. 1-2. https://doi.org/10.1145/3587421.3595409
+7. Jendersie, Johannes ; et. al. *An Approximate Mie Scattering Function for Fog and Cloud Rendering*. 2023. ACM SIGGRAPH Talks, Article 47, p. 1-2. https://doi.org/10.1145/3587421.3595409
+  
+[Top](#Top)
+
+# Parameter Wedge Images
+
+Left to Right: *Direction* ranges from -1 (backward scattering) to +1 (forward scattering).
+
+Bottom to Top: *Dispersion* ranges from 0 to 1.
+
+## Prater Fuzz
+
+### Front Lighting
+![Prater Fuzz Front](media/PraterFuzzFront.jpg)
+  
+### Back Lighting
+![Prater Fuzz Back](media/PraterFuzzBack.jpg)
+  
+## Prater Scatter
+
+### Front Lighting
+![Prater Scatter Front](media/PraterScatterFront.jpg)
+  
+### Back Lighting
+![Prater Scatter Back](media/PraterScatterBack.jpg)
   
 [Top](#Top)
