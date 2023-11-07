@@ -50,7 +50,7 @@ Large scale variation in the orientation of the fibers produces one of this resp
 ![PraterFuzz](media/PraterFuzz.jpg)
 
 [Prater Fuzz](../cpp/bxdf/PraterFuzz.inl)
-is a purely empirical response function based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
+is an empirical response function based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
 
 It uses a numerically interpolated normalization function based on numerically integrated response intensities from a set of uniformly spaced and distributed spherical sampling directions[<sup>2</sup>](#references).
 Since the two response control parameters are constant over the surface, the integration step is done only once per pair of parameter values, resulting in fully interactive live rendering rates and high control parameter slider interactivity.
@@ -121,7 +121,7 @@ I have corresponded with [Wenzel Jakob](https://rgl.epfl.ch/people/wjakob/) abou
 was developed to address deficiencies in the control (and therefore the appearance) of the
 Henyey-Greenstein[<sup>1</sup>](#references)
 phase function when used for this purpose.
-It is a purely empirical model based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
+It is an empirical model based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
 
 It uses a polynomial normalization function fitted to numerically integrated response intensities from
 a set of uniformly spaced and distributed spherical sampling directions.
