@@ -7,7 +7,7 @@ Specifically, this repository contains [`cpp`](cpp) source code for the plugins 
 
 Documentation is in the [`doc`](doc) directory.
 
-Please feel free to use the [Discussions Tab](https://github.com/LaikaStudios/OSLShaderWriting/discussions).
+Please feel free to use the [Discussions Tab](https://github.com/LaikaStudios/BxDFs/discussions).
 I'd love you hear what you think, or to discuss any issues or thoughts you may have about this repository and its contents.
 
 # License
