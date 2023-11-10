@@ -105,10 +105,10 @@ includeFiles := ./include/*.h
 $(so): $(includeFiles)
 
 # Individual dependencies.
-bxdf/HGScatter.so: bxdf/HGScatterSampling.inl
-bxdf/KPFuzz.so: bxdf/KPFuzzSampling.inl
-bxdf/PraterFuzz.so: bxdf/sampleDir.h
+bxdf/PraterFuzz.so: bxdf/PraterFuzzSampling.inl
 bxdf/PraterScatter.so: bxdf/PraterScatterSampling.inl
+bxdf/KPVelvet.so: bxdf/KPVelvetSampling.inl
+bxdf/HGScatter.so: bxdf/HGScatterSampling.inl
 
 # Make the .so file in-place and copy it to the
 # $(install_dir) using its flattened file name.

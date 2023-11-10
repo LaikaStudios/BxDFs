@@ -7,13 +7,6 @@
  *  This program may not be copied, modified, or distributed except according to those terms.
  */
 
-#include <string>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <vector>
-#include <array>
-
 #include "RixRNG.h"
 #include "RixBxdf.h"
 #include "RixBxdfLobe.h"
@@ -24,68 +17,6 @@
 
 // Provides a non-const pointer to a const data set so it can be modified in place.
 #define NON_CONST_PTR(type,ptr) const_cast< type >( static_cast< const type >( ptr ))
-
-
-//===================================================================
-//  2022 Prater "fuzz" response function.
-//  Simulates the presence of a surface boundary layer consisting
-//  of fibers oriented perpendicularly to the surface: e.g. velvet.
-//  Originally developed in the 1990's, but has undergone continuous
-//  revision since then. Unpublished.
-//===================================================================
-
-/*
- *  Notation (vectors originate at the surface):
- *      wi - incident direction: the "light" direction. a.k.a. "incoming".
- *      wo - observer direction: the "view" direction. a.k.a. "outgoing".
- *      wg - the geometric (modeled surface) normal.
- *      ws - surface shading normal. possibly "bumped" relative to wg.
- *      wn - response computation normal. generally equivalent to ws.
- *      Cs - the substance's characteristic (un-lit) coloration (spectrum).
- *      Cr - the response color & magnitude (spectrum*intensity).
- *      W  - the response weight.
- *      fPdf - forward pdf: probability of light moving from wi toward wo.
- *      rPdf - reverse pdf: probability of light moving from wo toward wi.
- */
-
-PRMAN_INLINE
-float PraterFuzzResponse
-(
-    const float  g, // Direction: -1 < g < +1
-    const float  f, // 1-Dispersion: 0 ≤ f ≤ 1
-    const float  cos_theta, // Θ = wi ∠ wo
-    const float  cos_wnwi,
-    const float  cos_wnwo
-)
-{
-    // Forward/backward scattering weight.
-    // t = ray/unit-circle intersection distance.
-    // ray direction d = ( cos_theta, sin_theta )
-    // ray origin p = ( g, 0 ); 0 < g ⇒ forward scattering.
-    const float  dot_pp = g*g;
-    const float  dot_pd = cos_theta*g;
-    const float  t = std::sqrt( dot_pd*dot_pd - dot_pp + 1.0f ) - dot_pd;
-
-    // Asperity.
-    const float  asperity_wi = 1.0f - std::abs( cos_wnwi );
-    const float  asperity_wo = 1.0f - std::abs( cos_wnwo );
-
-    const float  asperity_broad = (asperity_wi + asperity_wo) * 0.5f;
-    const float  asperity_narrow = asperity_wi * asperity_wo;
-    const float  asperity = f*f*(asperity_narrow - asperity_broad) + asperity_broad;
-
-    // Response function.
-    const float  e = 0.5f + 3.5f*f; // lerp( 0.5, 4.0, f );
-    const float  r = std::pow( t * asperity, e );
-
-    return r;
-}
-
-
-// Uniformly and regularly spaced spherical sample directions
-// used for (brute force) numerical response integration, which
-// is then used to normalize the response energy.
-#include "bxdf/sampleDir.h"
 
 
 /*
@@ -115,54 +46,6 @@ class BxdfFactory : public RixBxdfFactory
 
         // Orientation param connection info.
         RixSCConnectionInfo  cinfoOrientation;
-
-        // ½ degree increment wn ∠ wi response integral values in the
-        // [0,π/2] range for the current g and f.
-        float  g;
-        float  f;
-        std::array< float, 181 >  responseIntegral;
-
-        // Compute the response integration values at every ½ degree
-        // of wn ∠ wi in [0,π/2] based on the current g and f.
-        void SetNormalization( const float _g, const float _f )
-        {
-            g = _g;
-            f = _f;
-
-            const RtVector3  wn = RtVector3( 0.0, 0.0, 1.0 );
-
-            for( int halfDeg = 0; halfDeg < responseIntegral.size(); halfDeg++ ) // [0,π/2]
-            {
-                const float  cos_wnwi = std::cos( halfDeg * (F_PI / 360.0f) );
-                const RtVector3  wi = RtVector3( 0.0, cos_wnwi, std::sqrt( 1.0 - cos_wnwi*cos_wnwi ));
-
-                double  sum = 0.0;
-                const int  sampleNum = sizeof( sampleDir ) / sizeof(float) / 3; // Number of sample vectors.
-                for( int s = 0; s < sampleNum; s++ )
-                {
-                    RtVector3  wo = RtVector3( sampleDir[s][0], sampleDir[s][1], sampleDir[s][2] );
-                    const float  cos_wnwo = wo.Dot( wn );
-                    const float  cos_theta = wo.Dot( wi );
-
-                    sum += PraterFuzzResponse( g, f, cos_theta, cos_wnwi, cos_wnwo );
-                }
-                sum *= F_FOURPI / sampleNum; // Apply sample solid angle scale outside the loop.
-
-                responseIntegral[ halfDeg ] = sum;
-            }
-        }
-
-        // Interpolate the response integral data for the given
-        // cos_wnwi and return the response normalization value.
-        // Note: response is symmetric about cos_wnwi = 0.
-        float GetNormalization( const float cos_wnwi )
-        {
-            const float halfDeg = std::acos( std::abs( cos_wnwi )) * (360.0f / F_PI);
-            const int   i0 = std::floor( halfDeg );
-            const int   i1 = std::ceil( halfDeg );
-            const float t = halfDeg - i0;
-            return  1.0f / RixMix( responseIntegral[i0], responseIntegral[i1], t );
-        }
 
         // Frees the struct's memory.
         static void Delete( void* data )
@@ -246,17 +129,6 @@ class BxdfFactory : public RixBxdfFactory
         // Allocate new memory for this plugin's per-instance data.
         auto pluginData = new BxdfFactory::pluginInstanceData;
         if( !pluginData ) return;
-
-        // Convert Direction and Dispersion parameter values to g and f
-        // and use those to compute the response normalization data.
-        float  Direction( def_Direction );
-        float  Dispersion( def_Dispersion );
-        pList->EvalParam( in_Direction, -1, &Direction );
-        pList->EvalParam( in_Dispersion, -1, &Dispersion );
-
-        const float  g = 0.99f * Direction; // -1 < g < +1
-        const float  f = 1.0f - Dispersion; // 0 ≤ f ≤ 1
-        pluginData->SetNormalization( g, f );
 
         // Set this plugin's (presence/opacity/interior) hints
         // based on how the Presence parameter is being set.
@@ -402,109 +274,10 @@ class BxdfClosure : public RixBxdf
     const float*      Gain;
     const RtColorRGB* Color;
     const RtNormal3*  Orientation;
+    const float*      Direction;
+    const float*      Dispersion;
     const RtNormal3*  Ng;
     const RtVector3*  Vn;
-
-    void PraterFuzzPdf
-    (
-        const float  cos_theta, // Θ = wi ∠ wo
-        const float  cos_wnwi,
-        const float  cos_wnwo,
-        // Results:
-        float&  fPdf,
-        float&  rPdf,
-        float&  W
-    )
-    {
-        W = PraterFuzzResponse( pluginData->g, pluginData->f, cos_theta, cos_wnwi, cos_wnwo )
-          * pluginData->GetNormalization( cos_wnwi );
-        
-        // Volume scattering, so we don't scale by projected solid angle.
-        // fPdf = W * cos_wgwi;
-        // rPdf = W * cos_wgwo;
-        rPdf = fPdf = W;
-    }
-
-    void PraterFuzz
-    (
-        const float  cos_theta,
-        const float  cos_wnwi,
-        const float  cos_wnwo,
-        const RtColorRGB  Cs,
-        // Results:
-        float&  fPdf,
-        float&  rPdf,
-        RtColorRGB& Cr
-    )
-    {
-        float  W;
-        PraterFuzzPdf( cos_theta, cos_wnwi, cos_wnwo, fPdf, rPdf, W );
-        Cr = Cs * W;
-    }
-
-    bool Generate
-    (
-        const RtNormal3  wg,
-        const RtVector3  wn,
-        const RtVector3  wo,
-        const RtFloat2   xi,
-        const RtColorRGB Cs,
-        // Results:
-        RtVector3&  wi,
-        float&  fPdf,
-        float&  rPdf,
-        RtColorRGB& Cr
-    )
-    {
-        // Test the observer visibility.
-        if( wg.Dot(wo) < 0.00001f ) return false;
-
-        // Generate an incident sample direction (wi).
-        RtVector3  wt, wb;
-        wg.CreateOrthonormalBasis( wt, wb );
-
-        // Toroidal distribution produced by squaring xi.y.
-        float  dummy;
-        const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] );
-        RixUniformDirectionalDistribution( newXi, wg, wt, wb, wi, dummy );
-
-        // Test the incident sample visibility: reject those below the horizon.
-        // No rejection testing necessary, since only reflection hemisphere
-        // samples are generated.
-        // if( wg.Dot(wi) < 0.00001f ) return false;
-
-        const float  cos_theta = wi.Dot(wo);
-        const float  cos_wnwi = wn.Dot(wi);
-        const float  cos_wnwo = wn.Dot(wo);
-
-        PraterFuzz( cos_theta, cos_wnwi, cos_wnwo, Cs, fPdf, rPdf, Cr );
-        return true;
-    }
-
-    bool Evaluate
-    (
-        const RtNormal3  wg,
-        const RtVector3  wn,
-        const RtVector3  wo,
-        const RtVector3  wi,
-        const RtColorRGB Cs,
-        // Results:
-        float&  fPdf,
-        float&  rPdf,
-        RtColorRGB& Cr
-    )
-    {
-        // Test the observer and incident visibility.
-        if( wg.Dot(wo) < 0.00001f ) return false;
-        if( wg.Dot(wi) < 0.00001f ) return false;
-
-        const float  cos_theta = wi.Dot(wo);
-        const float  cos_wnwi = wn.Dot(wi);
-        const float  cos_wnwo = wn.Dot(wo);
-
-        PraterFuzz( cos_theta, cos_wnwi, cos_wnwo, Cs, fPdf, rPdf, Cr );
-        return true;
-    }
 
   public:
 
@@ -523,6 +296,8 @@ class BxdfClosure : public RixBxdf
         const float*      _Gain,
         const RtColorRGB* _Color,
         const RtNormal3*  _Orientation,
+        const float*      _Direction,
+        const float*      _Dispersion,
         const RtNormal3*  _Ng,
         const RtVector3*  _Vn
     ):
@@ -534,12 +309,14 @@ class BxdfClosure : public RixBxdf
         // to the responses the integrator wants from it.
         bxdfLobes( lobesWanted ),
 
-        // Initialize this BxdfClosure's other member variables.
+        // Initialize this BxdfClosure's member variables.
         pluginData( _pluginData ),
         numPts( _numPts ),
         Gain( _Gain ),
         Color( _Color ),
         Orientation( _Orientation ),
+        Direction( _Direction ),
+        Dispersion( _Dispersion ),
         Ng( _Ng ),
         Vn( _Vn )
     {
@@ -566,163 +343,7 @@ class BxdfClosure : public RixBxdf
 
     // Inline the implementation of this plugin's BxdfClosure methods.
     // These define this bxdf's response interactions with the integrator.
-    // #include "bxdf/PraterFuzzSampling.inl"
-
-    /*
-    ================================================================
-    GenerateSample() provides the integrator with a shading context
-    set of samples generated from this bxdf's response lobe(s).
-    ================================================================
-    */
-    void GenerateSample
-    (
-        RixBXTransportTrait     transportTrait, // Direct, indirect, or both bit field.
-        const RixBXLobeTraits*  lobesWanted, // by the integrator, per shading context point.
-        RixRNG*                 rixRng, // handle to the random number generator.
-        // Generated results:
-        RixBXLobeSampled*       lobeGenerated, // which lobe type was generated.
-        RtVector3*              wi, // incoming sample direction per shading context point.
-        RixBXLobeWeights&       lobeWeights, // response weights.
-        float*                  fPdf, // forward pdf.
-        float*                  rPdf, // reverse pdf.
-        RtColorRGB*             compTrans // compositing transparency (PRMan "Oi")?
-    )
-    {
-        RtFloat2*  xi = static_cast< RtFloat2* >( RixAlloca( numPts*sizeof(RtFloat2) ));
-        rixRng->DrawSamples2D( xi );
-
-        const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
-
-        RtColorRGB*  PraterFuzzWeight = NULL;
-
-        for( int i=0; i < numPts; i++ )
-        {
-            lobeGenerated[i].SetValid( false );
-
-            const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted[i];
-
-            const bool  doPraterFuzz = ( lobesToConsider & sg_PraterFuzz_LT ).HasAny();
-
-            if( doPraterFuzz )
-            {
-                const RtColorRGB Cs = Color[i]*Gain[i];
-                const RtNormal3  wn = Orientation[i];
-                const RtNormal3  wg = Ng[i];
-                const RtVector3  wo = Vn[i];
-
-                if( !PraterFuzzWeight ) PraterFuzzWeight = lobeWeights.AddActiveLobe( sg_PraterFuzz_LS );
-
-                if( Generate( wg, wn, wo, xi[i], Cs, wi[i], fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
-                {
-                    lobeGenerated[i] = sg_PraterFuzz_LS;
-                }
-            }
-        }
-    }
-
-    /*
-    ================================================================
-    EvaluateSample() provides the integrator with a shading context
-    set of samples evaluated using this bxdf's response lobe(s).
-    ================================================================
-    */
-    void EvaluateSample
-    (
-        RixBXTransportTrait     transportTrait, // Direct, indirect, or both bit field.
-        const RixBXLobeTraits*  lobesWanted, // by the integrator, per shading context point.
-        RixRNG*                 rixRng, // handle to the random number generator.
-        RixBXLobeTraits*        lobesEvaluated, // Returned value.
-        const RtVector3*        wi, // incoming sample direction per shading context point.
-        // Evaluated results:
-        RixBXLobeWeights&       lobeWeights, // sample weight.
-        float*                  fPdf, // forward pdf.
-        float*                  rPdf  // reverse pdf.
-    )
-    {
-        const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
-
-        RtColorRGB*  PraterFuzzWeight = NULL;
-
-        for( int i=0; i < numPts; i++ )
-        {
-            lobesEvaluated[i].SetNone();
-
-            const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted[i];
-
-            const bool  doPraterFuzz = ( lobesToConsider & sg_PraterFuzz_LT ).HasAny();
-
-            if( doPraterFuzz )
-            {
-                const RtColorRGB Cs = Color[i]*Gain[i];
-                const RtNormal3  wn = Orientation[i];
-                const RtNormal3  wg = Ng[i];
-                const RtVector3  wo = Vn[i];
-
-                if( !PraterFuzzWeight ) PraterFuzzWeight = lobeWeights.AddActiveLobe( sg_PraterFuzz_LS );
-
-                if( Evaluate( wg, wn, wo, wi[i], Cs, fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
-                {
-                    lobesEvaluated[i] |= sg_PraterFuzz_LT;
-                }
-            }
-        }
-    }
-
-    /*
-    =============================================================
-    Like EvaluateSample(), but does multiple evaluations of this
-    bxdf's response lobe(s) at a single shading context point.
-    =============================================================
-    */
-    void EvaluateSamplesAtIndex
-    (
-        RixBXTransportTrait     transportTrait, // Direct, indirect, or both bit field.
-        const RixBXLobeTraits&  lobesWanted, // by the integrator, at the scIndex point.
-        RixRNG*                 rixRng, // handle to the random number generator.
-        int                     scIndex, // shading context point to evaluate.
-        int                     nSamps, // number of wi samples to evaluate.
-        RixBXLobeTraits*        lobesEvaluated, // Returned value.
-        const RtVector3*        wi, // nSamps incoming sample directions.
-        // Evaluated results:
-        RixBXLobeWeights&       lobeWeights, // sample weight.
-        float*                  fPdf, // forward pdf.
-        float*                  rPdf  // reverse pdf.
-    )
-    {
-        const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
-        const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted;
-
-        const bool  doPraterFuzz = ( lobesToConsider & sg_PraterFuzz_LT ).HasAny();
-
-        RtColorRGB*  PraterFuzzWeight = NULL;
-        if( doPraterFuzz ) PraterFuzzWeight = lobeWeights.AddActiveLobe( sg_PraterFuzz_LS );
-
-        for( int i=0; i < nSamps; i++ )
-        {
-            lobesEvaluated[i].SetNone();
-
-            if( doPraterFuzz )
-            {
-                const RtColorRGB Cs = Color[scIndex]*Gain[scIndex];
-                const RtNormal3  wn = Orientation[scIndex];
-                const RtNormal3  wg = Ng[scIndex];
-                const RtVector3  wo = Vn[scIndex];
-
-                if( Evaluate( wg, wn, wo, wi[i], Cs, fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
-                {
-                    lobesEvaluated[i] |= sg_PraterFuzz_LT;
-                }
-            }
-        }
-    }
-
-    /*
-    ======================================================================
-    EmitLocal() produces a shading context set of this bxdf's baked
-    (pre-integrated) illumination responses and/or light emission results.
-    ======================================================================
-    */
-    bool EmitLocal( RtColorRGB* ) { return false; } // None in this case.
+    #include "bxdf/PraterFuzzSampling.inl"
 };
 
 
@@ -766,10 +387,23 @@ RixBxdf* BxdfFactory::BeginScatter
     const float*      Gain;
     const RtColorRGB* Color;
     const RtNormal3*  Orientation;
+    const float*      Direction;
+    const float*      Dispersion;
 
     sCtx->EvalParam( in_Gain, -1, &Gain, &def_Gain, true );
     sCtx->EvalParam( in_Color, -1, &Color, &def_Color, true );
     sCtx->EvalParam( in_Orientation, -1, &Orientation, &def_Orientation, true );
+    sCtx->EvalParam( in_Direction, -1, &Direction, &def_Direction, true );
+    sCtx->EvalParam( in_Dispersion, -1, &Dispersion, &def_Dispersion, true );
+
+    // Convert Direction and Dispersion parameter values (in-place) to g and f.
+    float*  writeDirection = NON_CONST_PTR( float*, Direction );
+    float*  writeDispersion = NON_CONST_PTR( float*, Dispersion );
+    for( int i=0; i < numPts; i++ )
+    {
+        writeDirection[i] = 0.99f * Direction[i]; // -1 < g < +1
+        writeDispersion[i] = 1.0f - Dispersion[i]; // 0 ≤ f ≤ 1
+    }
 
     // Point Orientation to Nn if it hasn't been set to anything.
     if( k_RixSCDefaultValue == pluginData->cinfoOrientation )
@@ -797,6 +431,8 @@ RixBxdf* BxdfFactory::BeginScatter
                                             Gain,
                                             Color,
                                             Orientation,
+                                            Direction,
+                                            Dispersion,
                                             Ng,
                                             Vn
                                             );

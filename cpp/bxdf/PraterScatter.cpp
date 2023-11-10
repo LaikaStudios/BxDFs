@@ -15,7 +15,7 @@
 #include "RixPredefinedStrings.hpp"
 #include "bxdf/PxrSurfaceOpacity.h"
 
-// Provides a non-const pointer to a const data set so it can be written to.
+// Provides a non-const pointer to a const data set so it can be modified in place.
 #define NON_CONST_PTR(type,ptr) const_cast< type >( static_cast< const type >( ptr ))
 
 
@@ -29,11 +29,9 @@ of its user parameters and their shading network connections.
 */
 class BxdfFactory : public RixBxdfFactory
 {
-  private:
+    friend class BxdfClosure;
 
-    // Any general-purpose Rix Interface handles we might
-    // need that are accessible within the Init() method.
-    RixMessages*  rixMsg;
+  private:
 
     // Data struct that contains plugin parameter values and other
     // data that can be computed once for each unique invocation
@@ -98,11 +96,8 @@ class BxdfFactory : public RixBxdfFactory
     }
 
     // Get any general-purpose RixInterface handles we need.
-    int Init( RixContext& ctx, const RtUString plugPathName )
-    {
-        rixMsg = static_cast< RixMessages* >( ctx.GetRixInterface( k_RixMessages ));
-        return !rixMsg ? -1 : 0;
-    }
+    int Init( RixContext&, const RtUString ) { return 0; }
+
     // Since Init() didn't allocate any memory, Finalize() is a no-op.
     void Finalize( RixContext& ctx ) {}
 
@@ -111,7 +106,7 @@ class BxdfFactory : public RixBxdfFactory
 
     // CreateInstanceData() is called once for each unique set of plugin parameter values
     // (a.k.a. a plugin instance) and is used to store those values and other data that
-    // can be computed once.
+    // can be computed once per instance.
     void CreateInstanceData
     (
         RixContext&             ctx,
@@ -260,6 +255,9 @@ class BxdfClosure : public RixBxdf
     // integrator wants with the lobes this bxdf can produce.
     RixBXLobeTraits   bxdfLobes;
 
+    // Shading instance data needed to compute this bxdf.
+    BxdfFactory::pluginInstanceData*  pluginData; // InstanceData->data.
+
     // Shading context data needed to compute this bxdf.
     // These will consist of numPts values: one for each shaded point.
     // Note: a shading context is also known as a rendering "grid".
@@ -283,11 +281,14 @@ class BxdfClosure : public RixBxdf
         const RixBXLobeTraits&   lobesWanted, // by the integrator, per bxdf closure.
 
         // Parameters containing data needed to compute this bxdf's response(s).
+        BxdfFactory::pluginInstanceData* _pluginData, // InstanceData->data.
         const int         _numPts,
         const float*      _Gain,
         const RtColorRGB* _Color,
         const float*      _Direction,
-        const float*      _Dispersion
+        const float*      _Dispersion,
+        const RtNormal3*  _Ng,
+        const RtVector3*  _Vn
     ):
         // Initializes the protected RixBxdf class members
         // 'shadingCtx' (shading context) to sCtx, and 'bxdfFactory' to bFac.
@@ -297,22 +298,20 @@ class BxdfClosure : public RixBxdf
         // to the responses the integrator wants from it.
         bxdfLobes( lobesWanted ),
 
-        // Initialize this BxdfClosure's parameter data pointers.
+        // Initialize this BxdfClosure's member variables.
+        pluginData( _pluginData ),
         numPts( _numPts ),
         Gain( _Gain ),
         Color( _Color ),
         Direction( _Direction ),
-        Dispersion( _Dispersion )
+        Dispersion( _Dispersion ),
+        Ng( _Ng ),
+        Vn( _Vn )
     {
         // Intersect the response(s) wanted by the integrator (lobesWanted)
         // with the response(s) this bxdf produces. The result defines the set
         // of responses we need to compute in the BxdfClosure::*Sample() methods.
         bxdfLobes &= sg_PraterScatter_LT; // Additional response sg_*_LT values are | together.
-
-        // Save some shading context data in the BxdfClosure's member
-        // variables that we'll need later in its *Sample() methods.
-        sCtx->GetBuiltinVar( RixShadingContext::k_Ngn, &Ng ); // wg
-        sCtx->GetBuiltinVar( RixShadingContext::k_Vn,  &Vn ); // wo
     }
     // Destructor.
     ~BxdfClosure() {}
@@ -358,7 +357,13 @@ RixBxdf* BxdfFactory::BeginScatter
     int  numPts = sCtx->numPts;
 
     // This plugin's per-instance data.
-    // auto  pluginData = static_cast< BxdfFactory::pluginInstanceData* >( data );
+    auto  pluginData = static_cast< BxdfFactory::pluginInstanceData* >( data );
+
+    // Get some shading context variable pointers.
+    const RtNormal3*  Ng;
+    const RtVector3*  Vn;
+    sCtx->GetBuiltinVar( RixShadingContext::k_Ngn, &Ng ); // wg
+    sCtx->GetBuiltinVar( RixShadingContext::k_Vn,  &Vn ); // wo
 
     // Evaluate the Socket parameter to trigger connected node evaluation.
     const int*  Socket;
@@ -394,12 +399,15 @@ RixBxdf* BxdfFactory::BeginScatter
     // Create an instance of this shader's bxdf closure
     // and pass any necessary data to it.
     BxdfClosure*  bxdf = new (mem) BxdfClosure( this, sCtx, lobesWanted,
-                                        numPts,
-                                        Gain,
-                                        Color,
-                                        Direction,
-                                        Dispersion
-                                        );
+                                            pluginData,
+                                            numPts,
+                                            Gain,
+                                            Color,
+                                            Direction,
+                                            Dispersion,
+                                            Ng,
+                                            Vn
+                                            );
 
     return bxdf;
 }

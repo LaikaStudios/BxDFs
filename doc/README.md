@@ -17,9 +17,9 @@ An even better solution would be to incorporate them into a modular response agg
 In addition, given their nature, the transmitted portion of scattered light could be calculated and passed to the underlying surface responses as part of its vertical layering in a combined set of material response strata.
 This computation has not yet been implemented in these versions, so as-is their use is limited to horizontal layering (i.e. mixing/blending) when combined with other responses.
 
-First developed at [Pixar](https://www.pixar.com) in the late 1990s for the [REYES](https://dl.acm.org/doi/10.1145/37402.37414) architecture using the [RenderMan Shading Language](https://renderman.pixar.com/resources/RenderMan_20/shadingLanguage.html),
-the [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter) models have never been published.
-Since their creation they have undergone continuous evolution and periodic transformation as [RenderMan](https://renderman.pixar.com/)'s capabilities and implementation details have evolved. 
+First developed at [Pixar](https://www.pixar.com) in the late 1990s and early 2000s for the [REYES](https://dl.acm.org/doi/10.1145/37402.37414) architecture using the [RenderMan Shading Language](https://renderman.pixar.com/resources/RenderMan_20/shadingLanguage.html),
+the [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter) models have, until now, never been published.
+Since their initial creation they have undergone continuous evolution and periodic transformation as [RenderMan](https://renderman.pixar.com/)'s capabilities and implementation details have evolved. 
 
 These most recent incarnations were developed in concert so they each use the same simple and intuitive *Direction* and *Dispersion* control parameters.
 *Direction* is analogous to the Henyey-Greenstein[<sup>1</sup>](#references) *g* parameter,
@@ -50,11 +50,7 @@ Large scale variation in the orientation of the fibers produces one of this resp
 ![PraterFuzz](media/PraterFuzz.jpg)
 
 [Prater Fuzz](../cpp/bxdf/PraterFuzz.inl)
-is an empirical response function based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
-
-It uses a numerically interpolated normalization function based on numerically integrated response intensities from a set of uniformly spaced and distributed spherical sampling directions[<sup>2</sup>](#references).
-Since the two response control parameters are constant over the surface, the integration step is done only once per pair of parameter values, resulting in fully interactive live rendering rates and high control parameter slider interactivity.
-Future work will focus on an analytical normalization function in order to allow control parameter variations over the surface.
+is an empirical response based on my observations. Its primary goal is to provide both realism and a wide range of intuitive artistic control.
 
 Response sampling is done using the upper half of a toroidal sample distribution: a sliced bagel.
 This produces far better noise and convergence behavior than simple uniform 
@@ -62,14 +58,14 @@ sampling which, as pointed out in *Production Friendly Microfacet Sheen BRDF*[ <
 I believe this is a previously undescribed general sampling distribution,
 one which is extremely well suited to [Fuzz](fuzz) response types.
 
-Beginning in 2017, a few response models have been introduced with the potential to supercede this one.
+Beginning in 2017, a few response models in this category have been introduced.
 An examination of these is contained in the
 [Supplementary Materials](https://dl.acm.org/action/downloadSupplement?doi=10.1145%2F3532836.3536240&file=supplemental.pdf)
 for
-*Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*[<sup>4</sup>](#references)
+*Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines* [<sup>4</sup>](#references)
 along with their new response model.
+At some point I hope to implement this "sheen" model for comparison.
 There are also various hair and fur models that have the potential to be applied to this response class.
-At some point I hope to implement the more promising of these for comparison.
 
 [Top](#Top)
 
@@ -80,7 +76,7 @@ Created in 2002, *The Secret of Velvety Skin* [<sup>5</sup>](#references)
 contained, as far as I'm aware, the first published model to directly address this type of response with sufficient visual quality and in a manner that was practical for the production-constrained computational resources of the time.
 The paper also includes some interesting observations about human visual perception, which is a stimulating theme of these researchers' papers.
 However, comparisons with [Prater Fuzz](#prater-fuzz) showed this response function to be inferior in both appearance and range of control.
-Also, it is strongly biased toward forward scattering, so it is useful primarily as a "rim" backlighting effect.
+Also, it only produces forward scattering, so it is useful primarily as a "rim" backlighting effect.
 
 Its implementation uses uniform sample generation, which is entirely adequate for making visual quality and usability assessments.
 
@@ -101,7 +97,7 @@ this microfacet distribution model is designed to simulate the back-scattering p
 Rather than providing an implementation of this response, I rely on the existing [LamaSheen](https://rmanwiki.pixar.com/display/REN25/LamaSheen) node from [RenderMan 25](https://rmanwiki.pixar.com/display/REN25/RenderMan+25+Documentation), which I'm told implements this response model.
 
 Given its lack of forward scattering and general absense of any secondary scattering effects in its appearance,
-I find this response to be inferior to [Prater Fuzz](prater-fuzz). However, it's clearly not without merit, and a combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be quite nice.
+I find this response to be inferior to [Prater Fuzz](prater-fuzz). However, it's clearly not without merit. In particular, combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be useful.
 
 [Top](#Top)
 
@@ -124,8 +120,7 @@ phase function when used for this purpose.
 It is an empirical model based on my observations, with the primary goal of providing both realism and a wide range of intuitive artistic control.
 
 It uses a polynomial normalization function fitted to numerically integrated response intensities from
-a set of uniformly spaced and distributed spherical sampling directions.
-The normalization function has not been independently verified, although it appears to be working as intended.
+a set of uniformly spaced and distributed spherical sampling directions [<sup>2</sup>](#references).
 An adaptation of Henyey-Greenstein[<sup>1</sup>](#references) sample generation was initially used, but was found to be a much poorer choice than simple uniform sampling.
 
 [Top](#Top)
@@ -156,7 +151,11 @@ These deficiencies were the original impetus for developing the [Prater Scatter]
 # Conclusions
 
 The [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter)
-response functions have been around for many years and have withstood the test of time over the course of many productions. While microfacet and microflake models have become de rigueur for being considered physically based, the once ubiquitous empirical response function has been relegated to the ash heap of history. This, I believe, is a mistake. Empirical models have the ability to be tailored for their results alone, and thus provide for a far greater range of expression and potential for matching reality as we actually perceive it. And as these response implementations prove, the modern rendering requirements of energy conservation and fast execution do not preclude the use of such models, or the use of inexact sample generation distributions.
+response functions have been around for many years and have withstood the test of time over the course of many productions.
+While microfacet and microflake models have become de rigueur for being considered physically based, the once ubiquitous empirical response function has largely been relegated to the ash heap of history.
+This, I believe, is a mistake.
+Empirical models have the ability to be tailored for their results alone, and thus provide for a far greater range of expression and potential for matching reality as we actually perceive it.
+And as these response implementations prove, the modern rendering requirements of energy conservation and fast execution do not preclude the use of such models, or the use of inexact sample generation distributions.
 
 # References
 
@@ -182,7 +181,7 @@ response functions have been around for many years and have withstood the test o
 
 Left to Right: *Direction* ranges from -1 (backward scattering) to +1 (forward scattering).
 
-Bottom to Top: *Dispersion* ranges from 0 to 1.
+Top to Bottom: *Dispersion* ranges from 1 (most dispersed) to 0 (most focused).
 
 ## Prater Fuzz
 

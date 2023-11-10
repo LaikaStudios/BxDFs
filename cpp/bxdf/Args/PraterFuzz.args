@@ -54,7 +54,6 @@
     </param>
 
     <param name = "Direction"
-        connectable = "False"
         type = "float"
         slider = "true" slidermin = "-1.0" slidermax = "1.0" slidersensitivity = "0.05"
         default = "-0.5">
@@ -74,7 +73,6 @@
     </param>
 
     <param name = "Dispersion"
-        connectable = "False"
         type = "float"
         slider = "true" slidermin = "0.0" slidermax = "1.0" slidersensitivity = "0.05"
         default = "0.5">
