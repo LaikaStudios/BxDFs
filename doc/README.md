@@ -154,7 +154,7 @@ The [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter)
 response functions have been around for many years and have withstood the test of time over the course of many productions.
 While microfacet and microflake models have become de rigueur for being considered physically based, the once ubiquitous empirical response function has largely been relegated to the ash heap of history.
 This, I believe, is a mistake.
-Empirical models have the ability to be tailored for their results alone, and thus provide for a far greater range of expression and potential for matching reality as we actually perceive it.
+Empirical models have the ability to be tailored for their results alone, and thus provide for a far greater range of expression and potential for matching reality as we actually perceive it rather than how we imagine it to be.
 And as these response implementations prove, the modern rendering requirements of energy conservation and fast execution do not preclude the use of such models, or the use of inexact sample generation distributions.
 
 # References
