@@ -17,7 +17,7 @@ An even better solution would be to incorporate them into a modular response agg
 In addition, given their nature, the transmitted portion of scattered light could be calculated and passed to the underlying surface responses as part of its vertical layering in a combined set of material response strata.
 This computation has not yet been implemented in these versions, so as-is their use is limited to horizontal layering (i.e. mixing/blending) when combined with other responses.
 
-First developed at [Pixar](https://www.pixar.com) in the late 1990s and early 2000s for the [REYES](https://dl.acm.org/doi/10.1145/37402.37414) architecture using the [RenderMan Shading Language](https://renderman.pixar.com/resources/RenderMan_20/shadingLanguage.html),
+First developed at [Pixar](https://www.pixar.com) in the early 1990s for the [REYES](https://dl.acm.org/doi/10.1145/37402.37414) architecture using the [RenderMan Shading Language](https://renderman.pixar.com/resources/RenderMan_20/shadingLanguage.html),
 the [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter) models have, until now, never been published.
 Since their initial creation they have undergone continuous evolution and periodic transformation as [RenderMan](https://renderman.pixar.com/)'s capabilities and implementation details have evolved. 
 
