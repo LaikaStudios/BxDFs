@@ -84,7 +84,6 @@ install(DIRECTORY
 
 file (GLOB args_files "cpp/bxdf/Args/*.args")
 
-file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/otls)
 if (MSVC)
     add_custom_command(OUTPUT LaikaBxDFs.hda
         COMMAND
