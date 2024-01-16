@@ -31,7 +31,7 @@ find_package(Houdini
 
 find_program(ARGS2HDA args2hda.py
     HINTS ${RFHTREE}/${_houdini_python_version}/${Houdini_VERSION}/python${_houdini_python_version}libs)
-if(ARGS2HDA_NOTFOUND)
+if(NOT ARGS2HDA)
     message(FATAL_ERROR "args2hda.py not found!")
 endif()
 
