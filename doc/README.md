@@ -113,7 +113,7 @@ I have corresponded with [Wenzel Jakob](https://rgl.epfl.ch/people/wjakob/) abou
 ## Prater Scatter
 ![Prater Scatter](./media/PraterScatter.jpg)
 
-[Prater Scatter](../cpp/bxdf/PraterScatter.inl)
+[Prater Scatter](../cpp/bxdf/PraterScatterSampling.inl)
 was developed to address deficiencies in the control (and therefore the appearance) of the
 Henyey-Greenstein[<sup>1</sup>](#references)
 phase function when used for this purpose.
