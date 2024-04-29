@@ -9,9 +9,9 @@ The inherent properties of different types of scattering media account for the d
 The supplied source code produces the given reflected light response in isolation, whereas these are meant to be used in concert with other responses to produce a complete material response aggregate.
 As such, in order to combine these with other responses,
 they would have to be incorporated into an uber-shader such as
-[PxrSurface](https://rmanwiki.pixar.com/display/REN25/PxrSurface) or 
-[PxrDisneyBsdf](https://rmanwiki.pixar.com/display/REN25/PxrDisneyBsdf).
-An even better solution would be to incorporate them into a modular response aggregation system such as [MaterialX Lama](https://rmanwiki.pixar.com/display/REN25/MaterialX+Lama).
+[PxrSurface](https://rmanwiki.pixar.com/display/REN/PxrSurface) or 
+[PxrDisneyBsdf](https://rmanwiki.pixar.com/display/REN/PxrDisneyBsdf).
+An even better solution would be to incorporate them into a modular response aggregation system such as [MaterialX Lama](https://rmanwiki.pixar.com/display/REN/MaterialX+Lama).
 
 
 In addition, given their nature, the transmitted portion of scattered light could be calculated and passed to the underlying surface responses as part of its vertical layering in a combined set of material response strata.
@@ -47,16 +47,16 @@ It is so named because very short hair or fur that covers a surface is generally
 Large scale variation in the orientation of the fibers produces one of this response type's most important secondary visual characteristics.
 
 ## Prater Fuzz
-![PraterFuzz](media/PraterFuzz.jpg)
+![PraterFuzz](./media/PraterFuzz.jpg)
 
-[Prater Fuzz](../cpp/bxdf/PraterFuzz.inl)
+[Prater Fuzz](../cpp/bxdf/PraterFuzzSampling.inl)
 is an empirical response based on my observations. Its primary goal is to provide both realism and a wide range of intuitive artistic control.
 
 Response sampling is done using the upper half of a toroidal sample distribution: a sliced bagel.
 This produces far better noise and convergence behavior than simple uniform 
 sampling which, as pointed out in *Production Friendly Microfacet Sheen BRDF*[ <sup>3</sup>](#references), is not so bad to begin with.
 I believe this is a previously undescribed general sampling distribution,
-one which is extremely well suited to [Fuzz](fuzz) response types.
+one which is extremely well suited to [Fuzz](#fuzz) response types.
 
 Beginning in 2017, a few response models in this category have been introduced.
 An examination of these is contained in the
@@ -70,7 +70,7 @@ There are also various hair and fur models that have the potential to be applied
 [Top](#Top)
 
 ## Koenderink-Pont Velvet
-![Koenterink-Pont](media/KoenderinkPontVelvet.jpg)
+![Koenterink-Pont](./media/KoenderinkPontVelvet.jpg)
 
 Created in 2002, *The Secret of Velvety Skin* [<sup>5</sup>](#references)
 contained, as far as I'm aware, the first published model to directly address this type of response with sufficient visual quality and in a manner that was practical for the production-constrained computational resources of the time.
@@ -87,17 +87,17 @@ and the visual qualities of both were inferior to the [Prater Fuzz](#prater-fuzz
 [Top](#Top)
 
 ## Conty-Kulla Sheen
-![Conty-Kulla Sheen](media/ContyKullaSheen.jpg)
+![Conty-Kulla Sheen](./media/ContyKullaSheen.jpg)
 
 Described in the
 [supplemental](https://blog.selfshadow.com/publications/s2017-shading-course/imageworks/s2017_pbs_imageworks_sheen.pdf) material
 for the 2017 SIGGRAPH Course *Physically Based Shading in Theory and Practice*[ <sup>3</sup>](#references),
 this microfacet distribution model is designed to simulate the back-scattering properties of cloth-like materials.
 
-Rather than providing an implementation of this response, I rely on the existing [LamaSheen](https://rmanwiki.pixar.com/display/REN25/LamaSheen) node from [RenderMan 25](https://rmanwiki.pixar.com/display/REN25/RenderMan+25+Documentation), which I'm told implements this response model.
+Rather than providing an implementation of this response, I rely on the existing [LamaSheen](https://rmanwiki.pixar.com/display/REN/LamaSheen) node from [RenderMan](https://rmanwiki.pixar.com/display/REN), which I'm told implements this response model.
 
 Given its lack of forward scattering and general absence of any secondary scattering effects in its appearance,
-I find this response to be inferior to [Prater Fuzz](prater-fuzz). However, it's clearly not without merit. In particular, combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be useful.
+I find this response to be inferior to [Prater Fuzz](#prater-fuzz). However, it's clearly not without merit. In particular, combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be useful.
 
 [Top](#Top)
 
@@ -111,7 +111,7 @@ and most production approaches now use brute-force methods based on generating h
 I have corresponded with [Wenzel Jakob](https://rgl.epfl.ch/people/wjakob/) about this, but at that time, he had no one available to operate his [gonio-photometer](https://rgl.epfl.ch/pages/lab/pgII) scanning equipment to capture this data.
 
 ## Prater Scatter
-![Prater Scatter](media/PraterScatter.jpg)
+![Prater Scatter](./media/PraterScatter.jpg)
 
 [Prater Scatter](../cpp/bxdf/PraterScatter.inl)
 was developed to address deficiencies in the control (and therefore the appearance) of the
@@ -126,7 +126,7 @@ An adaptation of Henyey-Greenstein[<sup>1</sup>](#references) sample generation 
 [Top](#Top)
 
 ## Henyey-Greenstein Scatter
-![Henyey-Greenstein](media/HenyeyGreensteinScatter.jpg)
+![Henyey-Greenstein](./media/HenyeyGreensteinScatter.jpg)
 
 The Henyey-Greenstein[<sup>1</sup>](#references) scattering phase function was introduced in 1941.
 It is an empirical model intended to describe the scattering of light from interstellar dust.
@@ -186,17 +186,17 @@ Top to Bottom: *Dispersion* ranges from 1 (most dispersed) to 0 (most focused).
 ## Prater Fuzz
 
 ### Front Lighting
-![Prater Fuzz Front](media/PraterFuzzFront.jpg)
+![Prater Fuzz Front](./media/PraterFuzzFront.jpg)
   
 ### Back Lighting
-![Prater Fuzz Back](media/PraterFuzzBack.jpg)
+![Prater Fuzz Back](./media/PraterFuzzBack.jpg)
   
 ## Prater Scatter
 
 ### Front Lighting
-![Prater Scatter Front](media/PraterScatterFront.jpg)
+![Prater Scatter Front](./media/PraterScatterFront.jpg)
   
 ### Back Lighting
-![Prater Scatter Back](media/PraterScatterBack.jpg)
+![Prater Scatter Back](./media/PraterScatterBack.jpg)
   
 [Top](#Top)
