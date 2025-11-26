@@ -5,7 +5,7 @@
 This repository contains BxDF plugins developed at [LAIKA](https://www.laika.com) for use in [RenderMan](https://rmanwiki.pixar.com/display/REN).
 Specifically, this repository contains [`cpp`](./cpp) source code for the plugins and a [make](https://www.gnu.org/software/make/manual/) and [python3](https://docs.python.org/3/) based build system to deploy them.
 
-Documentation is in the [`doc`](./doc) directory.
+All documentation is in the [`doc`](./doc) directory.
 
 Please feel free to use the [Discussions Tab](https://github.com/LaikaStudios/BxDFs/discussions).
 I'd love you hear what you think, or to discuss any issues or thoughts you may have about this repository and its contents.

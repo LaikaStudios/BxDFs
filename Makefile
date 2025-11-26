@@ -1,5 +1,5 @@
 #
-#   Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+#   Copyright 2022 LAIKA. Authored by Mitch J Prater.
 # 
 #   Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
 #   or the MIT license http://opensource.org/licenses/MIT, at your option.
@@ -8,20 +8,12 @@
 #
 
 #
-# PIXAR_ROOT must be set to the location of the
-# RenderMan installation: e.g. /opt/pixar
-#
-ifndef PIXAR_ROOT
-    $(error PIXAR_ROOT has not been set. This is required for the build system to function.)
-endif
-
-#
 # Control variables determine what is made.
 #
 # Which RenderMan software version(s) are built if one
 # isn't specified in the RMAN_VERSION environment variable.
-# Used to build multiple RenderMan versions.
-rman_versions := 25.2
+# Used to build multiple RenderMan versions by listing them here.
+rman_versions := 27.0
 
 # Different version builds cannot be run in parallel.
 .NOTPARALLEL:
@@ -115,13 +107,14 @@ endif
 #
 help :
 	@ echo "------------------------------------------------------------------------"
-	@ echo "PIXAR_ROOT must be set to the location of the RenderMan installation:"
-	@ echo "e.g. /opt/pixar"
-	@ echo "RMAN_VERSION can also be set to the RenderMan version you wish to make:"
-	@ echo "e.g. 25.2"
+	@ echo "These environment variables must be set:"
+	@ echo "  PIXAR_ROOT must be set to the location of the RenderMan installation:"
+	@ echo "  e.g. /opt/pixar"
+	@ echo "  RMAN_VERSION can also be set to the RenderMan version you wish to make:"
+	@ echo "  e.g. 27.0"
 	@ echo ""
-	@ echo "If RMAN_VERSION is not set, the rman_versions variable specified"
-	@ echo "in this Makefile will be used to build all the versions it lists."
+	@ echo "  If RMAN_VERSION is not set, the rman_versions variable specified"
+	@ echo "  in this Makefile will be used to build all the versions it lists."
 	@ echo ""
 	@ echo "Current settings:"
 	@ echo "PIXAR_ROOT: $(PIXAR_ROOT)"

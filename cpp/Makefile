@@ -1,5 +1,5 @@
 #
-#   Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+#   Copyright 2022 LAIKA. Authored by Mitch J Prater.
 # 
 #   Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
 #   or the MIT license http://opensource.org/licenses/MIT, at your option.
@@ -8,16 +8,17 @@
 #
 
 #
-# PIXAR_ROOT and RMAN_VERSION are required to be set.
+# PIXAR_ROOT must be set to the location of the RenderMan installation: e.g. /opt/pixar
+# RMAN_VERSION must be set to the RenderMan version: e.g. 27.0
 #
 ifndef PIXAR_ROOT
-    $(error PIXAR_ROOT has not been set. This is required for the build system to function.)
+    $(error PIXAR_ROOT has not been set. This is required for the build system to function. Typically it is /opt/pixar)
 endif
 ifndef RMAN_VERSION
-    $(error RMAN_VERSION has not been set. This must be done by the top-level Makefile, the environment, or in the 'make' command)
+    $(error RMAN_VERSION has not been set. This must be done by the top-level Makefile, the environment, or in the make command: 'make RMAN_VERSION=27.0')
 endif
 
-# Set RMANTREE is if isn't already.
+# Set RMANTREE if it isn't already.
 RMANTREE ?= $(PIXAR_ROOT)/RenderManProServer-$(RMAN_VERSION)
 
 
@@ -87,12 +88,12 @@ $(install_dir)/Args :
 #
 # Compiler settings.
 #
-CLANG = clang++
+GCC = gcc
 
-CC = $(CLANG) -fdiagnostics-color -ferror-limit=5
-LD = $(CLANG) -fdiagnostics-color -shared
+CC = $(GCC) -fdiagnostics-color 
+LD = $(GCC) -fdiagnostics-color -shared
 
-CFLAGS = -Wall -Wno-switch -Wno-reorder -Wno-unused-private-field -fPIC -std=c++17 -O3
+CFLAGS = -Wall -Wno-switch -Wno-reorder -Wno-deprecated-declarations -fPIC -std=c++17 -O3
 LFLAGS = 
 
 INCLUDE = -I. -I./include -I${RMANTREE}/include -I${RMANTREE}/plugins
@@ -137,11 +138,6 @@ clean: clean_local
 #
 help:
 	@ echo "------------------------------------------------------------------------"
-	@ echo "PIXAR_ROOT must be set to the location of the RenderMan installation:"
-	@ echo "e.g. /opt/pixar"
-	@ echo "RMAN_VERSION must be set to the RenderMan version you wish to make:"
-	@ echo "e.g. 25.2"
-	@ echo ""
 	@ echo "Current settings:"
 	@ echo "PIXAR_ROOT: $(PIXAR_ROOT)"
 	@ echo "RMAN_VERSION: $(RMAN_VERSION)"
@@ -166,7 +162,7 @@ show_so:
 	@ echo "The target .so files to build:"
 	@ echo $(dso) | sed "s/ /\\n/g" | sort
 	@ echo ""
-	@ echo "The built .so files that exist in the ris directory tree:"
+	@ echo "The built .so files that exist in the cpp directory tree:"
 	@ find -L . -name "*.so" -print | sort
 	@ echo ""
 

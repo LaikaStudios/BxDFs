@@ -39,6 +39,9 @@ Other responses are provided as points of comparison.
 1. [Conclusions](#conclusions)
 1. [References](#references)
 1. [Parameter Wedge Imagess](#parameter-wedge-images)
+1. [Installation](INSTALL.md#installation)
+    1. [Requirements](INSTALL.md#requirements)
+    1. [Quick Start](INSTALL.md#quick-start)
 
 # Fuzz
 
