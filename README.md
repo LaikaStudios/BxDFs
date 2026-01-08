@@ -7,6 +7,8 @@ Specifically, this repository contains [`cpp`](./cpp) source code for the plugin
 
 All documentation is in the [`doc`](./doc) directory.
 
+For an example of their use in production, see [Realistic Woven Cloth Shading](https://dl.acm.org/doi/10.1145/3744199.3744633) in [Proceedings of the Digital Production Symposium 2025](https://dp2025.digiproconf.org/program/).
+
 Please feel free to use the [Discussions Tab](https://github.com/LaikaStudios/BxDFs/discussions).
 I'd love you hear what you think, or to discuss any issues or thoughts you may have about this repository and its contents.
 
