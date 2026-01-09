@@ -485,7 +485,7 @@ bool Generate
     wg.CreateOrthonormalBasis( wt, wb );
 
     float  dummy;
-    const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] ); // dipole lobe distribution: sliced bagel.
+    const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] ); // half dipole lobe distribution: sliced bagel.
     RixUniformDirectionalDistribution( newXi, wg, wt, wb, wi, dummy );
 
     // Test the incident sample visibility: reject those below the horizon.
