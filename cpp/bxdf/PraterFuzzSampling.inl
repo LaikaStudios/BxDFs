@@ -80,7 +80,7 @@ float PraterFuzzResponse
 
 // Compute the response normalization for the entire (spherical domain)
 // response lobe for the given parameters g, f, and cos_wnwi.
-// Provided by Per Christensen, Nov. 2023. Thanks Per!
+// Iterpolation provided by Per Christensen, Nov. 2023. Thanks Per!
 PRMAN_INLINE
 float PraterFuzzNormalize
 (
@@ -481,12 +481,11 @@ bool Generate
     if( wg.Dot(wo) < 0.00001f ) return false;
 
     // Generate an incident sample direction (wi).
-    // Stub-in isotropic (uniform above wg) samples for now.
     RtVector3  wt, wb;
     wg.CreateOrthonormalBasis( wt, wb );
 
     float  dummy;
-    const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] ); // dipole lobe distribution.
+    const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] ); // dipole lobe distribution: sliced bagel.
     RixUniformDirectionalDistribution( newXi, wg, wt, wb, wi, dummy );
 
     // Test the incident sample visibility: reject those below the horizon.
