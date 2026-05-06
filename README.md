@@ -5,7 +5,7 @@
 This repository contains BxDF plugins developed at [LAIKA](https://www.laika.com) for use in [RenderMan](https://rmanwiki.pixar.com/display/REN).
 Specifically, this repository contains [`cpp`](./cpp) source code for the plugins and a [make](https://www.gnu.org/software/make/manual/) and [python3](https://docs.python.org/3/) based build system to deploy them.
 
-All documentation is in the [`doc`](./doc) directory.
+All documentation is in the [`doc`](./doc) directory. Installation instructions are [here](./doc/INSTALL.md).
 
 For an example of their use in production, see [Realistic Woven Cloth Shading](https://dl.acm.org/doi/10.1145/3744199.3744633) in [Proceedings of the Digital Production Symposium 2025](https://dp2025.digiproconf.org/program/).
 

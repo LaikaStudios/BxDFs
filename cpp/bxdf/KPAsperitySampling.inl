@@ -1,11 +1,20 @@
 /*
- *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *  Copyright 2022 LAIKA. Authored by Mitch J Prater.
  *
  *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
  *  or the MIT license http://opensource.org/licenses/MIT, at your option.
  *
  *  This program may not be copied, modified, or distributed except according to those terms.
  */
+/*  Implements:
+ *
+ *      2003 Koenderink-Pont "asperity" response.
+ *      The secret of velvety skin.
+ *      Koenderink, Jan and Pont, Sylvia
+ *      Machine Vision and Applications, Vol. 14, p. 260-268 (2003)
+ *      http://dx.doi.org/10.1007/s00138-002-0089-7
+ */
+
 #include "prmanapi.h"
 #include "RiTypesHelper.h"
 
@@ -14,6 +23,7 @@
 #include "RixShading.h"
 #include "RixShadingUtils.h"
 
+#include <cmath>
 
 /*
  *  Defines the response sample methods of the RixBxdf object:
@@ -27,36 +37,28 @@
  *  Notation (vectors originate at the surface):
  *      wi - incident direction: the "light" direction. a.k.a. "incoming".
  *      wo - observer direction: the "view" direction. a.k.a. "outgoing".
- *      wg - the geometric (modeled surface) normal.
- *      ws - surface shading normal. possibly "bumped" relative to wg.
- *      wn - response computation normal. generally equivalent to ws.
- *      Cs - the substance's characteristic (un-lit) coloration (spectrum).
- *      Cr - the response color & magnitude (spectrum*intensity).
- *      W  - the response weight.
+ *      wg - the geometric (modeled + displaced surface) normal.
+ *      wn - surface shading normal. possibly "bumped" relative to wg.
+ *      Cs - the substance's characteristic (un-lit) coloration (albedo).
+ *      Cr - the response color & magnitude (albedo*intensity).
+ *      w  - the response weight (intensity).
  *      fPdf - forward pdf: probability of light moving from wi toward wo.
  *      rPdf - reverse pdf: probability of light moving from wo toward wi.
+ *      Unless otherwise noted:
+ *      θ - spherical coordinate polar angle from +z (the surface normal).
+ *      φ - spherical coordinate azimuth angle around z.
  */
 
-
-//===============================================================
-//  Koenderink-Pont asperity response.
-//  Machine Vision and Applications, Vol. 14, p. 260-268 (2003)
-//  http://dx.doi.org/10.1007/s00138-002-0089-7
-//===============================================================
-PRMAN_INLINE
-void KoenderinkPontPdf
+inline
+float KPAsperityResponse
 (
-    const RtFloat        lm, // ∆/λ - fiber length / scattering mean free path.
+    const float          lm, // ∆/λ : fiber length / scattering mean free path.
     const RtVector3      wn, // n
     const RtVector3      wo, // u
     const RtVector3      wi, // v
-    const RtFloat  cos_wnwo, // u·n
-    const RtFloat  cos_wnwi, // v·n
-    const RtFloat  cos_wowi, // p(-u·v)
-    // Results:
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
-    RtFloat&  W
+    const float    cos_wnwo, // u·n
+    const float    cos_wnwi, // v·n
+    const float    cos_wowi  // p(-u·v)
 )
 {
     const RtVector3  u_add_v = wo + wi; // u+v
@@ -66,91 +68,106 @@ void KoenderinkPontPdf
     const float  dot_un = cos_wnwo; // u·n
     const float  dot_vn = cos_wnwi; // v·n
 
-    const float  pdf = dot_uv*( dot_vn / u_add_v_dot_n )*( 1.0f - std::exp( -lm * u_add_v_dot_n/( dot_un*dot_vn )));
+    const float  r = dot_uv*( dot_vn / u_add_v_dot_n )*( 1.0f - std::exp( -lm * u_add_v_dot_n/( dot_un*dot_vn )));
 
-    rPdf = fPdf = W = pdf;
+    return r;
 }
 
-PRMAN_INLINE
-bool KoenderinkPontEval
+inline
+void KPAsperity
 (
     const RtColorRGB     Cs,
-    const RtFloat        lm, // ∆/λ - fiber length / scattering mean free path.
+    const float          lm, // ∆/λ : fiber length / scattering mean free path.
     const RtVector3      wn, // n
     const RtVector3      wo, // u
     const RtVector3      wi, // v
-    const RtFloat  cos_wnwo, // u·n
-    const RtFloat  cos_wnwi, // v·n
+    const float    cos_wnwo, // u·n
+    const float    cos_wnwi, // v·n
+    const float    cos_wowi, // p(-u·v)
+
     // Results:
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
-    RtColorRGB& Cr
+    float&  fPdf,
+    float&  rPdf,
+    RtColorRGB&  Cr
 )
 {
-    // Test the incident view factor (observer view factor tested prior to calling).
-    if( cos_wnwi < 0.00001f ) return false;
+    // Response.
+    float  w = KPAsperityResponse( lm, wn, wo, wi, cos_wnwo, cos_wnwi, cos_wowi );
+    Cr = Cs * w;
 
-    // Eliminates forward scattering.
-    const float  cos_wowi = std::max( 0.0f, -(wo.Dot(wi)) ); // p(-u·v)
-
-    RtFloat  W;
-    KoenderinkPontPdf( lm, wn, wo, wi, cos_wnwo, cos_wnwi, cos_wowi, fPdf, rPdf, W );
-    Cr = Cs * W;
-
-    return true;
+    // Pdf. This must match the sampling distribution, not the response function.
+    // This is because Generate() and Evaluate() must report the same pdf for a
+    // given sample direction to ensure their results are consistent with each other.
+    // But regardless of what samples are used for integration, the response itself
+    // is always evaluated using the bxdf's normalized response function.
+    //
+    // The sample generation produces a distribution whose pdf is 1/(4π√cosθ).
+    fPdf = F_INVFOURPI / std::sqrt( std::max( 0.000001f, cos_wnwi ));
+    rPdf = F_INVFOURPI / std::sqrt( std::max( 0.000001f, cos_wnwo ));
 }
 
-PRMAN_INLINE
-bool KPEvaluate
+
+//===================================================================
+// Generate() and Evaluate() connect the response functions above to
+// the API methods below. They also perform any necessary visibility
+// or other sanity checks and can bypass a sample if necessary.
+//===================================================================
+inline
+bool Generate
 (
     const RtColorRGB  Cs,
-    const RtFloat     lm, // ∆/λ - fiber length / scattering mean free path.
-    const RtNormal3   wn, // n
-    const RtVector3   wo, // u
-    const RtVector3   wi, // v
-    // Results:
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
-    RtColorRGB& Cr
-)
-{
-    // Test the observer view factor.
-    const float  cos_wnwo = wn.Dot(wo);  // u·n
-    if( cos_wnwo < 0.00001f ) return false;
-
-    const float  cos_wnwi = wn.Dot(wi); // v·n
-
-    return KoenderinkPontEval( Cs, lm, wn, wo, wi, cos_wnwo, cos_wnwi, fPdf, rPdf, Cr );
-}
-
-PRMAN_INLINE
-bool KPGenerate
-(
-    const RtColorRGB  Cs,
-    const RtFloat     lm, // ∆/λ - fiber length / scattering mean free path.
+    const float       lm, // ∆/λ : fiber length / scattering mean free path.
     const RtNormal3   wn, // n
     const RtVector3   wo, // u
     const RtFloat2    xi,
+
     // Results:
     RtVector3&  wi,
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
-    RtColorRGB& Cr
+    float&  fPdf,
+    float&  rPdf,
+    RtColorRGB&  Cr
 )
 {
-    // Test the observer view factor.
-    const float  cos_wnwo = wn.Dot(wo);
-    if( cos_wnwo < 0.00001f ) return false;
+    const float  cos_wnwo = wn.Dot(wo); // u·n
 
-    // Generate an incident sample direction (wi) and its view factor.
-    // XXX stub-in uniform samples for now.
+    // Generate an incident sample direction (wi).
+    // Stub-in isotropic uniform samples for now.
     RtVector3  wt, wb;
     wn.CreateOrthonormalBasis( wt, wb );
 
-    RtFloat  cos_wnwi;
-    RixUniformDirectionalDistribution( xi, wn, wt, wb, wi, cos_wnwi );
+    // Squaring xi[1] gives more importance to samples near the
+    // horizon and produces a distribution with a pdf of 1/(4π√cosθ).
+    const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] );
+    float  cos_wnwi; // v·n
+    RixUniformDirectionalDistribution( newXi, wn, wt, wb, wi, cos_wnwi );
 
-    return KoenderinkPontEval( Cs, lm, wn, wo, wi, cos_wnwo, cos_wnwi, fPdf, rPdf, Cr );
+    const float  cos_wowi = std::max( 0.0f, -(wo.Dot(wi)) ); // p(-u·v)
+
+    KPAsperity( Cs, lm, wn, wo, wi, cos_wnwo, cos_wnwi, cos_wowi, fPdf, rPdf, Cr );
+    return true;
+}
+
+inline
+bool Evaluate
+(
+    const RtColorRGB  Cs,
+    const float       lm, // ∆/λ : fiber length / scattering mean free path.
+    const RtNormal3   wn, // n
+    const RtVector3   wo, // u
+    const RtVector3   wi, // v
+
+    // Results:
+    float&  fPdf,
+    float&  rPdf,
+    RtColorRGB&  Cr
+)
+{
+    const float  cos_wnwo = wn.Dot(wo); // u·n
+    const float  cos_wnwi = wn.Dot(wi); // v·n
+    const float  cos_wowi = std::max( 0.0f, -(wo.Dot(wi)) ); // p(-u·v)
+
+    KPAsperity( Cs, lm, wn, wo, wi, cos_wnwo, cos_wnwi, cos_wowi, fPdf, rPdf, Cr );
+    return true;
 }
 
 
@@ -169,8 +186,8 @@ void GenerateSample
     RixBXLobeSampled*       lobeGenerated, // which lobe type was generated.
     RtVector3*              wi, // incoming sample direction per shading context point.
     RixBXLobeWeights&       lobeWeights, // response weights.
-    RtFloat*                fPdf, // forward pdf.
-    RtFloat*                rPdf, // reverse pdf.
+    float*                  fPdf, // forward pdf.
+    float*                  rPdf, // reverse pdf.
     RtColorRGB*             compTrans // compositing transparency (PRMan "Oi")?
 )
 {
@@ -179,29 +196,30 @@ void GenerateSample
 
     const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
 
-    RtColorRGB*  KPVelvetWeight = NULL;
+    RtColorRGB*  KPAsperityWeight = NULL;
 
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         lobeGenerated[i].SetValid( false );
 
         const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted[i];
 
-        const bool  doKPVelvet = ( lobesToConsider & sg_KPVelvet_LT ).HasAny();
-        if( doKPVelvet )
+        const bool  doKPAsperity = ( lobesToConsider & sg_KPAsperity_LT ).HasAny();
+
+        if( doKPAsperity )
         {
             // Create the sample weight array for this response, if needed.
-            if( !KPVelvetWeight ) KPVelvetWeight = lobeWeights.AddActiveLobe( sg_KPVelvet_LS );
+            if( !KPAsperityWeight ) KPAsperityWeight = lobeWeights.AddActiveLobe( sg_KPAsperity_LS );
 
             // Initialize any data needed to compute the response.
             const RtColorRGB Cs = Color[i]*Gain[i];
-            const RtFloat    lm = Length[i];
+            const float      lm = Length[i];
             const RtNormal3  wn = Orientation[i];
             const RtVector3  wo = Vn[i];
 
-            if( KPGenerate( Cs, lm, wn, wo, xi[i], wi[i], fPdf[i], rPdf[i], KPVelvetWeight[i] ))
+            if( Generate( Cs, lm, wn, wo, xi[i], wi[i], fPdf[i], rPdf[i], KPAsperityWeight[i] ))
             {
-                lobeGenerated[i] = sg_KPVelvet_LS;
+                lobeGenerated[i] = sg_KPAsperity_LS;
             }
         }
     }
@@ -222,34 +240,34 @@ void EvaluateSample
     const RtVector3*        wi, // incoming sample direction per shading context point.
     // Evaluated results:
     RixBXLobeWeights&       lobeWeights, // sample weight.
-    RtFloat*                fPdf, // forward pdf.
-    RtFloat*                rPdf  // reverse pdf.
+    float*                  fPdf, // forward pdf.
+    float*                  rPdf  // reverse pdf.
 )
 {
     const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
 
-    RtColorRGB*  KPVelvetWeight = NULL;
+    RtColorRGB*  KPAsperityWeight = NULL;
 
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         lobesEvaluated[i].SetNone();
 
         const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted[i];
 
-        const bool  doKPVelvet = ( lobesToConsider & sg_KPVelvet_LT ).HasAny();
-        if( doKPVelvet )
+        const bool  doKPAsperity = ( lobesToConsider & sg_KPAsperity_LT ).HasAny();
+        if( doKPAsperity )
         {
             // Initialize any data needed to compute the response.
             const RtColorRGB Cs = Color[i]*Gain[i];
-            const RtFloat    lm = Length[i];
+            const float      lm = Length[i];
             const RtNormal3  wn = Orientation[i];
             const RtVector3  wo = Vn[i];
 
-            if( !KPVelvetWeight ) KPVelvetWeight = lobeWeights.AddActiveLobe( sg_KPVelvet_LS );
+            if( !KPAsperityWeight ) KPAsperityWeight = lobeWeights.AddActiveLobe( sg_KPAsperity_LS );
 
-            if( KPEvaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPVelvetWeight[i] ))
+            if( Evaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPAsperityWeight[i] ))
             {
-                lobesEvaluated[i] = sg_KPVelvet_LT;
+                lobesEvaluated[i] = sg_KPAsperity_LT;
             }
         }
     }
@@ -272,38 +290,37 @@ void EvaluateSamplesAtIndex
     const RtVector3*        wi, // nSamps incoming sample directions.
     // Evaluated results:
     RixBXLobeWeights&       lobeWeights, // sample weight.
-    RtFloat*                fPdf, // forward pdf.
-    RtFloat*                rPdf  // reverse pdf.
+    float*                  fPdf, // forward pdf.
+    float*                  rPdf  // reverse pdf.
 )
 {
     const RixBXLobeTraits  bxdfLobes = GetAllLobeTraits();
+    const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted;
 
-    RtColorRGB*  KPVelvetWeight = NULL;
+    RtColorRGB*  KPAsperityWeight = NULL;
 
-    for( int i=0; i < nSamps; i++ )
+    for( int i=0; i < nSamps; ++i )
     {
         lobesEvaluated[i].SetNone();
 
-        const RixBXLobeTraits  lobesToConsider = bxdfLobes & lobesWanted;
 
-        const bool  doKPVelvet = ( lobesToConsider & sg_KPVelvet_LT ).HasAny();
-        if( doKPVelvet )
+        const bool  doKPAsperity = ( lobesToConsider & sg_KPAsperity_LT ).HasAny();
+        if( doKPAsperity )
         {
-            if( !KPVelvetWeight ) KPVelvetWeight = lobeWeights.AddActiveLobe( sg_KPVelvet_LS );
+            if( !KPAsperityWeight ) KPAsperityWeight = lobeWeights.AddActiveLobe( sg_KPAsperity_LS );
 
             const RtColorRGB Cs = Color[scIndex]*Gain[scIndex];
-            const RtFloat    lm = Length[scIndex];
+            const float      lm = Length[scIndex];
             const RtNormal3  wn = Orientation[scIndex];
             const RtVector3  wo = Vn[scIndex];
 
-            if( KPEvaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPVelvetWeight[i] ))
+            if( Evaluate( Cs, lm, wn, wo, wi[i], fPdf[i], rPdf[i], KPAsperityWeight[i] ))
             {
-                lobesEvaluated[i] = sg_KPVelvet_LT;
+                lobesEvaluated[i] = sg_KPAsperity_LT;
             }
         }
     }
 }
-
 
 /*
 ======================================================================

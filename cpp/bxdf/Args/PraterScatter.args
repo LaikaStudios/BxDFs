@@ -1,5 +1,5 @@
 <!--
- *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *  Copyright 2022 LAIKA. Authored by Mitch J Prater.
  *
  *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
  *  or the MIT license http://opensource.org/licenses/MIT, at your option.
@@ -69,34 +69,6 @@
         <help>
             Determines how <b>Dispersed</b> the reflected light is.
             Analogous to the Roughness parameter used in other response types.
-        </help>
-    </param>
-
-    <param name = "Presence"
-        readOnly = "true"
-        type = "float"
-        default = "1.0">
-        <tags> <tag value = "float"/> </tags>
-        <help>
-            <b>Presence</b> can be used to cut away portions of the surface:
-            <br/>
-            <br/><i>0</i> results in no surface.
-            <br/><i>1</i> leaves the surface alone.
-            <p>
-            This value should ideally be binary: <i>0</i> or <i>1</i>.
-            Values between 0 and 1 will produce more sampling noise.
-            </p>
-        </help>
-    </param>
-
-    <param name = "Socket"
-        readOnly = "true"
-        type = "int"
-        default = "0">
-        <tags> <tag value = "int"/> </tags>
-        <help>
-            Connect a shading node's <b>Plug</b> output here in order
-            to execute that node and any shading tree connected to it.
         </help>
     </param>
 </args>

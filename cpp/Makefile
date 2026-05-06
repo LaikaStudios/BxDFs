@@ -9,13 +9,13 @@
 
 #
 # PIXAR_ROOT must be set to the location of the RenderMan installation: e.g. /opt/pixar
-# RMAN_VERSION must be set to the RenderMan version: e.g. 27.0
+# RMAN_VERSION must be set to the RenderMan version: e.g. 27.2
 #
 ifndef PIXAR_ROOT
-    $(error PIXAR_ROOT has not been set. This is required for the build system to function. Typically it is /opt/pixar)
+    $(error PIXAR_ROOT has not been set. This is required for the build system to function. Typically it is '/opt/pixar')
 endif
 ifndef RMAN_VERSION
-    $(error RMAN_VERSION has not been set. This must be done by the top-level Makefile, the environment, or in the make command: 'make RMAN_VERSION=27.0')
+    $(error RMAN_VERSION has not been set. This must be done by the top-level Makefile, the environment, or in the make command: 'make RMAN_VERSION=27.2')
 endif
 
 # Set RMANTREE if it isn't already.
@@ -106,10 +106,10 @@ includeFiles := ./include/*.h
 $(so): $(includeFiles)
 
 # Individual dependencies.
-bxdf/PraterFuzz.o: bxdf/PraterFuzzSampling.inl
-bxdf/PraterScatter.o: bxdf/PraterScatterSampling.inl
-bxdf/KPVelvet.o: bxdf/KPVelvetSampling.inl
-bxdf/HGScatter.o: bxdf/HGScatterSampling.inl
+bxdf/PraterFuzz.o: bxdf/PraterFuzzSampling.inl bxdf/Args/PraterFuzz.args
+bxdf/PraterScatter.o: bxdf/PraterScatterSampling.inl bxdf/Args/PraterScatter.args
+bxdf/KPAsperity.o: bxdf/KPAsperitySampling.inl bxdf/Args/KPAsperity.args
+bxdf/HGScatter.o: bxdf/HGScatterSampling.inl bxdf/Args/HGScatter.args
 
 # Make the .so file in-place and copy it to the
 # $(install_dir) using its flattened file name.

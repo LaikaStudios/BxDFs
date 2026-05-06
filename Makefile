@@ -13,7 +13,7 @@
 # Which RenderMan software version(s) are built if one
 # isn't specified in the RMAN_VERSION environment variable.
 # Used to build multiple RenderMan versions by listing them here.
-rman_versions := 27.0
+rman_versions := 27.2
 
 # Different version builds cannot be run in parallel.
 .NOTPARALLEL:

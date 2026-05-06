@@ -1,11 +1,20 @@
 /*
- *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *  Copyright 2022 LAIKA. Authored by Mitch J Prater.
  *
  *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
  *  or the MIT license http://opensource.org/licenses/MIT, at your option.
  *
  *  This program may not be copied, modified, or distributed except according to those terms.
  */
+/*  Implements:
+ *  
+ *      2022 Prater "scatter" response.
+ *      Simulates the presence of a scattering medium in a boundary
+ *      layer of the surface, like dust or a random jumble of fibers.
+ *      Originally developed in the 1990's, but has undergone continuous
+ *      revision since then. Unpublished.
+ */
+
 #include "prmanapi.h"
 #include "RiTypesHelper.h"
 
@@ -14,6 +23,7 @@
 #include "RixShading.h"
 #include "RixShadingUtils.h"
 
+#include <cmath>
 
 /*
  *  Defines the response sample methods of the RixBxdf object:
@@ -27,30 +37,24 @@
  *  Notation (vectors originate at the surface):
  *      wi - incident direction: the "light" direction. a.k.a. "incoming".
  *      wo - observer direction: the "view" direction. a.k.a. "outgoing".
- *      wg - the geometric (modeled surface) normal.
- *      ws - surface shading normal. possibly "bumped" relative to wg.
- *      wn - response computation normal. generally equivalent to ws.
- *      Cs - the substance's characteristic (un-lit) coloration (spectrum).
- *      Cr - the response color & magnitude (spectrum*intensity).
- *      W  - the response weight.
+ *      wg - the geometric (modeled + displaced surface) normal.
+ *      wn - surface shading normal. possibly "bumped" relative to wg.
+ *      Cs - the substance's characteristic (un-lit) coloration (albedo).
+ *      Cr - the response color & magnitude (albedo*intensity).
+ *      w  - the response weight (intensity).
  *      fPdf - forward pdf: probability of light moving from wi toward wo.
  *      rPdf - reverse pdf: probability of light moving from wo toward wi.
+ *      Unless otherwise noted:
+ *      θ - spherical coordinate polar angle from +z (the surface normal).
+ *      φ - spherical coordinate azimuth angle around z.
  */
 
-
-//===================================================================
-//  2022 Prater "scatter" response function.
-//  Simulates the presence of a scattering medium in a boundary
-//  layer of the surface, like dust or a random jumble of fibers.
-//  Originally developed in the 1990's, but has undergone continuous
-//  revision since then. Unpublished.
-//===================================================================
-PRMAN_INLINE
+inline
 float PraterScatterResponse
 (
     const float  g, // Direction: -1 < g < +1
     const float  f, // 1-Dispersion: 0 ≤ f ≤ 1
-    const float  cos_theta // Θ = wi ∠ wo
+    const float  cos_theta // Phase angle Θ = wi ∠ wo
 )
 {
     // Forward/backward scattering weight.
@@ -70,7 +74,7 @@ float PraterScatterResponse
 
 // Compute the response normalization for the entire (spherical domain)
 // response lobe for the given parameters g and f.
-PRMAN_INLINE
+inline
 float PraterScatterNormalize
 (
     const float  g,
@@ -119,78 +123,53 @@ float PraterScatterNormalize
     return 1.0 / integral;
 }
 
-PRMAN_INLINE
-void PraterScatterPdf
-(
-    const float  g, // -1 < g < +1 : Direction
-    const float  f, //  0 ≤ f ≤ 1  : 1-Dispersion
-    const float  cos_theta, // Θ = wi ∠ wo
-    // Results:
-    float&  fPdf,
-    float&  rPdf,
-    float&  W
-)
-{
-    W = PraterScatterResponse( g, f, cos_theta ) * PraterScatterNormalize( g, f );
-
-    // Volume scattering, so we don't scale by projected solid angle.
-    // fPdf = W * cos_wgwi;
-    // rPdf = W * cos_wgwo;
-    rPdf = fPdf = W;
-}
-
-PRMAN_INLINE
+inline
 void PraterScatter
 (
-    const float  g,
-    const float  f,
-    const float  cos_theta,
     const RtColorRGB  Cs,
-    // Results:
-    float&  fPdf,
-    float&  rPdf,
-    RtColorRGB&  Cr
-)
-{
-    float  W;
-    PraterScatterPdf( g, f, cos_theta, fPdf, rPdf, W );
-    Cr = Cs * W;
-}
-
-PRMAN_INLINE
-bool Evaluate
-(
     const float  g,
     const float  f,
-    const RtNormal3  wg,
-    const RtVector3  wo,
-    const RtVector3  wi,
-    const RtColorRGB Cs,
+    const float  cos_theta, // Phase angle Θ = wi ∠ wo
+
     // Results:
     float&  fPdf,
     float&  rPdf,
     RtColorRGB&  Cr
 )
 {
-    // Test the observer and incident visibility.
-    if( wg.Dot(wo) < 0.00001f ) return false;
-    if( wg.Dot(wi) < 0.00001f ) return false;
+    // Response.
+    float  w = PraterScatterResponse( g, f, cos_theta ) * PraterScatterNormalize( g, f );
+    Cr = Cs * w;
 
-    const float  cos_theta = wi.Dot(wo);
-    
-    PraterScatter( g, f, cos_theta, Cs, fPdf, rPdf, Cr );
-    return true;
+    // Pdf. This must match the sampling distribution, not the response function.
+    // This is because Generate() and Evaluate() must report the same pdf for a
+    // given sample direction to ensure their results are consistent with each other.
+    // But regardless of what samples are used for integration, the response itself
+    // is always evaluated using the bxdf's normalized response function.
+    //
+    // Since the generated samples are uniformly distributed over the hemisphere,
+    // each sample has the same probability, which is equal to the inverse of the
+    // hemisphere's area: 1/(2π).
+    rPdf = fPdf = F_INVTWOPI;
 }
 
-PRMAN_INLINE
+
+//===================================================================
+// Generate() and Evaluate() connect the response functions above to
+// the API methods below. They also perform any necessary visibility
+// or other sanity checks and can bypass a sample if necessary.
+//===================================================================
+inline
 bool Generate
 (
+    const RtColorRGB Cs,
     const float  g,
     const float  f,
+    const RtNormal3  wn,
     const RtNormal3  wg,
     const RtVector3  wo,
     const RtFloat2   xi,
-    const RtColorRGB Cs,
+
     // Results:
     RtVector3&  wi,
     float&  fPdf,
@@ -199,22 +178,49 @@ bool Generate
 )
 {
     // Test the observer visibility.
-    if( wg.Dot(wo) < 0.00001f ) return false;
+    //if( wg.Dot(wo) < 0.00001f ) return false;
 
     // Generate an incident sample direction (wi).
-    // Stub-in isotropic (uniform above wg) samples for now.
+    // Stub-in isotropic uniform samples for now.
     RtVector3  wt, wb;
-    wg.CreateOrthonormalBasis( wt, wb );
+    wn.CreateOrthonormalBasis( wt, wb );
 
     float  dummy;
-    RixUniformDirectionalDistribution( xi, wg, wt, wb, wi, dummy );
+    RixUniformDirectionalDistribution( xi, wn, wt, wb, wi, dummy );
 
     // Test the incident sample visibility: reject those below the horizon.
-    // if( wg.Dot(wi) < 0.00001f ) return false;
+    //if( wg.Dot(wi) < 0.00001f ) return false;
 
     const float  cos_theta = wi.Dot(wo);
 
-    PraterScatter( g, f, cos_theta, Cs, fPdf, rPdf, Cr );
+    PraterScatter( Cs, g, f, cos_theta, fPdf, rPdf, Cr );
+    return true;
+}
+
+inline
+bool Evaluate
+(
+    const RtColorRGB Cs,
+    const float  g,
+    const float  f,
+    const RtNormal3  wn,
+    const RtNormal3  wg,
+    const RtVector3  wo,
+    const RtVector3  wi,
+
+    // Results:
+    float&  fPdf,
+    float&  rPdf,
+    RtColorRGB&  Cr
+)
+{
+    // Test the observer and incident visibility.
+    //if( wg.Dot(wo) < 0.00001f ) return false;
+    //if( wg.Dot(wi) < 0.00001f ) return false;
+
+    const float  cos_theta = wi.Dot(wo);
+    
+    PraterScatter( Cs, g, f, cos_theta, fPdf, rPdf, Cr );
     return true;
 }
 
@@ -246,7 +252,7 @@ void GenerateSample
 
     RtColorRGB*  PraterScatterWeight = NULL;
 
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         lobeGenerated[i].SetValid( false );
 
@@ -257,14 +263,15 @@ void GenerateSample
         if( doPraterScatter )
         {
             const RtColorRGB Cs = Color[i]*Gain[i];
-            const RtNormal3  wg = Ng[i];
-            const RtVector3  wo = Vn[i];
             const float  g = Direction[i];
             const float  f = Dispersion[i];
+            const RtNormal3  wn = Nn[i];
+            const RtNormal3  wg = Ng[i];
+            const RtVector3  wo = Vn[i];
 
             if( !PraterScatterWeight ) PraterScatterWeight = lobeWeights.AddActiveLobe( sg_PraterScatter_LS );
 
-            if( Generate( g, f, wg, wo, xi[i], Cs, wi[i], fPdf[i], rPdf[i], PraterScatterWeight[i] ))
+            if( Generate( Cs, g, f, wn, wg, wo, xi[i], wi[i], fPdf[i], rPdf[i], PraterScatterWeight[i] ))
             {
                 lobeGenerated[i] = sg_PraterScatter_LS;
             }
@@ -295,7 +302,7 @@ void EvaluateSample
 
     RtColorRGB*  PraterScatterWeight = NULL;
 
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         lobesEvaluated[i].SetNone();
 
@@ -306,14 +313,15 @@ void EvaluateSample
         if( doPraterScatter )
         {
             const RtColorRGB Cs = Color[i]*Gain[i];
-            const RtNormal3  wg = Ng[i];
-            const RtVector3  wo = Vn[i];
             const float  g = Direction[i];
             const float  f = Dispersion[i];
+            const RtNormal3  wn = Nn[i];
+            const RtNormal3  wg = Ng[i];
+            const RtVector3  wo = Vn[i];
 
             if( !PraterScatterWeight ) PraterScatterWeight = lobeWeights.AddActiveLobe( sg_PraterScatter_LS );
 
-            if( Evaluate( g, f, wg, wo, wi[i], Cs, fPdf[i], rPdf[i], PraterScatterWeight[i] ))
+            if( Evaluate( Cs, g, f, wn, wg, wo, wi[i], fPdf[i], rPdf[i], PraterScatterWeight[i] ))
             {
                 lobesEvaluated[i] |= sg_PraterScatter_LT;
             }
@@ -350,19 +358,20 @@ void EvaluateSamplesAtIndex
     RtColorRGB*  PraterScatterWeight = NULL;
     if( doPraterScatter ) PraterScatterWeight = lobeWeights.AddActiveLobe( sg_PraterScatter_LS );
 
-    for( int i=0; i < nSamps; i++ )
+    for( int i=0; i < nSamps; ++i )
     {
         lobesEvaluated[i].SetNone();
 
         if( doPraterScatter )
         {
             const RtColorRGB Cs = Color[scIndex]*Gain[scIndex];
-            const RtNormal3  wg = Ng[scIndex];
-            const RtVector3  wo = Vn[scIndex];
             const float  g = Direction[scIndex];
             const float  f = Dispersion[scIndex];
+            const RtNormal3  wn = Nn[scIndex];
+            const RtNormal3  wg = Ng[scIndex];
+            const RtVector3  wo = Vn[scIndex];
 
-            if( Evaluate( g, f, wg, wo, wi[i], Cs, fPdf[i], rPdf[i], PraterScatterWeight[i] ))
+            if( Evaluate( Cs, g, f, wn, wg, wo, wi[i], fPdf[i], rPdf[i], PraterScatterWeight[i] ))
             {
                 lobesEvaluated[i] |= sg_PraterScatter_LT;
             }

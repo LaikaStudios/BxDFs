@@ -1,10 +1,18 @@
 /*
- *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *  Copyright 2022 LAIKA. Authored by Mitch J Prater.
  *
  *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
  *  or the MIT license http://opensource.org/licenses/MIT, at your option.
  *
  *  This program may not be copied, modified, or distributed except according to those terms.
+ */
+/*  Implements:
+ *  
+ *      2022 Prater "fuzz" response.
+ *      Simulates the presence of a surface boundary layer consisting
+ *      of fibers oriented perpendicularly to the surface: e.g. velvet.
+ *      Originally developed in the 1990's, but has undergone continuous
+ *      revision since then. Unpublished.
  */
 
 #include "RixRNG.h"
@@ -13,10 +21,6 @@
 #include "RixShading.h"
 #include "RixShadingUtils.h"
 #include "RixPredefinedStrings.hpp"
-#include "bxdf/PxrSurfaceOpacity.h"
-
-// Provides a non-const pointer to a const data set so it can be modified in place.
-#define NON_CONST_PTR(type,ptr) const_cast< type >( static_cast< const type >( ptr ))
 
 
 /*
@@ -38,12 +42,6 @@ class BxdfFactory : public RixBxdfFactory
     // (a.k.a. instance) of the plugin.
     struct pluginInstanceData
     {
-        // Stores the bitfield value that will be returned by
-        // GetInstanceHints(), which informs the integrator what
-        // types of presence/opacity/interior computations this
-        // bxdf plugin performs.
-        int  poiHints;
-
         // Orientation param connection info.
         RixSCConnectionInfo  cinfoOrientation;
 
@@ -59,21 +57,17 @@ class BxdfFactory : public RixBxdfFactory
     const float      def_Gain = 1.0f;
     const RtColorRGB def_Color = RtColorRGB( 0.5f );
     const RtNormal3  def_Orientation = RtNormal3( 0.0f );
-    const float      def_Direction = -0.5f;
+    const float      def_Direction = 0.0f;
     const float      def_Dispersion = 0.5f;
-    const float      def_Presence = 1.0f;
-    const int        def_Socket = 0;
 
     // pTable indices.
-    enum pTableEnries
+    enum pTableEntries
     {
         in_Gain = 0,
         in_Color,
         in_Orientation,
         in_Direction,
-        in_Dispersion,
-        in_Presence,
-        in_Socket
+        in_Dispersion
     };
 
   public:
@@ -93,19 +87,11 @@ class BxdfFactory : public RixBxdfFactory
             RixSCParamInfo( RtUString( "Orientation" ), k_RixSCNormal, k_RixSCScatterInput ),
             RixSCParamInfo( RtUString( "Direction" ), k_RixSCFloat, k_RixSCScatterInput ),
             RixSCParamInfo( RtUString( "Dispersion" ), k_RixSCFloat, k_RixSCScatterInput ),
-            RixSCParamInfo( RtUString( "Presence" ), k_RixSCFloat, k_RixSCPresenceInput ),
-            RixSCParamInfo( RtUString( "Socket" ), k_RixSCInteger ),
             RixSCParamInfo() // Ends the table.
         };
 
         return &pTable[0];
     }
-
-    // Get any general-purpose RixInterface handles we need.
-    int Init( RixContext&, const RtUString ) { return 0; }
-
-    // Since Init() didn't allocate any memory, Finalize() is a no-op.
-    void Finalize( RixContext& ctx ) {}
 
     // Sets this bxdf's characteristic Light Path Expression variables at RenderBegin.
     void Synchronize( RixContext&, RixSCSyncMsg, const RixParameterList* );
@@ -130,33 +116,8 @@ class BxdfFactory : public RixBxdfFactory
         auto pluginData = new BxdfFactory::pluginInstanceData;
         if( !pluginData ) return;
 
-        // Set this plugin's (presence/opacity/interior) hints
-        // based on how the Presence parameter is being set.
-        // The emun InstanceHints entries are defined in RixBxdf.h
-        RixSCType            type;
-        RixSCConnectionInfo  cinfo;
-
-        pList->GetParamInfo( in_Presence, &type, &cinfo );
-        switch( cinfo )
-        {
-            case k_RixSCDefaultValue:
-            {
-                pluginData->poiHints = k_TriviallyOpaque;
-            }
-            case k_RixSCParameterListValue:
-            {
-                float  Presence( def_Presence );
-                pList->EvalParam( in_Presence, -1, &Presence );
-                pluginData->poiHints = ( Presence != def_Presence ) ? k_ComputesPresence : k_TriviallyOpaque;
-            }
-            case k_RixSCNetworkValue:
-            {
-                // Presumes any connection to Presence contains values < 1.
-                pluginData->poiHints = k_ComputesPresence;
-            }
-        }
-
         // Get the Orientation parameter's connection info.
+        RixSCType  type;
         pList->GetParamInfo( in_Orientation, &type, &(pluginData->cinfoOrientation) );
 
         // Set the InstanceData struct members to access this plugin's new per-instance data.
@@ -167,20 +128,16 @@ class BxdfFactory : public RixBxdfFactory
 
     // GetInstanceHints() provides information to the integrator
     // about this bxdf's presence/opacity/interior computations.
-    int GetInstanceHints( void* data ) const
-    {
-        if( data ) return static_cast< BxdfFactory::pluginInstanceData* >( data )->poiHints;
-        else return k_TriviallyOpaque;
-    }
-
-    //  Unused. Using CreateInstanceData() instead.
-    void SynchronizeInstanceData( RixContext&, const RtUString, const RixParameterList*, const uint32_t, InstanceData* ) {}
+    int GetInstanceHints( void* data ) const { return k_TriviallyOpaque; }
 
     // No useful comments about this in RixBxdf.h, and all examples just return 1.
     float GetIndexOfRefraction( void* data ) const { return 1.0f; }
 
-    // Only used by volume bxdf's that have time-varying data. See PxrVolume.cpp.
-    void  RegisterTemporalVolumeParams( void*, std::vector< int >& ) const {}
+    // Unused here.
+    int  Init( RixContext&, const RtUString ) { return 0; }
+    void Finalize( RixContext& ctx ) {}
+    void SynchronizeInstanceData( RixContext&, const RtUString, const RixParameterList*, const uint32_t, InstanceData* ) {}
+    void RegisterTemporalVolumeParams( void*, std::vector< int >& ) const {}
 
     //------------------------------------------------
     // Begin/End methods provide the integrator with
@@ -188,16 +145,13 @@ class BxdfFactory : public RixBxdfFactory
     //------------------------------------------------
 
     // BeginScatter() returns a RixBxdf object that encapsulates this bxdf's light-scattering behavior.
-    // EndScatter() is called by RixBxdf::Release() to release the object created by BeingScatter().
+    // EndScatter() is called by RixBxdf::Release() to release the object created by BeginScatter().
     RixBxdf* BeginScatter( const RixShadingContext*, const RixBXLobeTraits&, RixSCShadingMode, void*, void* );
     void     EndScatter( RixBxdf* );
 
-    // BeginOpacity() returns a RixOpacity object that encapsulates this bxdf's presence and/or opacity behavior.
-    // EndOpacity() is called by RixOpacity::Release() to release the object created by BeginOpacity().
-    RixOpacity* BeginOpacity( const RixShadingContext*, RixSCShadingMode, void*, void* );
-    void        EndOpacity( RixOpacity* );
-
     // These functional blocks are not used in this bxdf.
+    RixOpacity*          BeginOpacity( const RixShadingContext*, RixSCShadingMode, void*, void* ) { return NULL; }
+    void                 EndOpacity( RixOpacity* ) {}
     RixVolumeIntegrator* BeginInterior( const RixShadingContext*, RixSCShadingMode, void*, void* ) { return NULL; }
     void                 EndInterior( RixVolumeIntegrator* ) {}
     RixVolumeIntegrator* BeginSubsurface( const RixShadingContext*, RixSCShadingMode, void*, void* ) { return NULL; }
@@ -264,9 +218,6 @@ class BxdfClosure : public RixBxdf
     // integrator wants with the lobes this bxdf can produce.
     RixBXLobeTraits   bxdfLobes;
 
-    // Shading instance data needed to compute this bxdf.
-    BxdfFactory::pluginInstanceData*  pluginData; // InstanceData->data.
-
     // Shading context data needed to compute this bxdf.
     // These will consist of numPts values: one for each shaded point.
     // Note: a shading context is also known as a rendering "grid".
@@ -291,7 +242,6 @@ class BxdfClosure : public RixBxdf
         const RixBXLobeTraits&   lobesWanted, // by the integrator, per bxdf closure.
 
         // Parameters containing data needed to compute this bxdf's response(s).
-        BxdfFactory::pluginInstanceData* _pluginData, // InstanceData->data.
         const int         _numPts,
         const float*      _Gain,
         const RtColorRGB* _Color,
@@ -310,7 +260,6 @@ class BxdfClosure : public RixBxdf
         bxdfLobes( lobesWanted ),
 
         // Initialize this BxdfClosure's member variables.
-        pluginData( _pluginData ),
         numPts( _numPts ),
         Gain( _Gain ),
         Color( _Color ),
@@ -366,22 +315,10 @@ RixBxdf* BxdfFactory::BeginScatter
     void*                    data // The per-instance data.
 )
 {
-    int  numPts = sCtx->numPts;
+    const int  numPts = sCtx->numPts;
 
     // This plugin's per-instance data.
     auto  pluginData = static_cast< BxdfFactory::pluginInstanceData* >( data );
-
-    // Get some shading context variable pointers.
-    const RtNormal3*  Nn;
-    const RtNormal3*  Ng;
-    const RtVector3*  Vn;
-    sCtx->GetBuiltinVar( RixShadingContext::k_Nn,  &Nn ); // wn
-    sCtx->GetBuiltinVar( RixShadingContext::k_Ngn, &Ng ); // wg
-    sCtx->GetBuiltinVar( RixShadingContext::k_Vn,  &Vn ); // wo
-
-    // Evaluate the Socket parameter to trigger connected node evaluation.
-    const int*  Socket;
-    sCtx->EvalParam( in_Socket, -1, &Socket );
 
     // Evaluate (the potentially varying) parameters.
     const float*      Gain;
@@ -397,13 +334,21 @@ RixBxdf* BxdfFactory::BeginScatter
     sCtx->EvalParam( in_Dispersion, -1, &Dispersion, &def_Dispersion, true );
 
     // Convert Direction and Dispersion parameter values (in-place) to g and f.
-    float*  writeDirection = NON_CONST_PTR( float*, Direction );
-    float*  writeDispersion = NON_CONST_PTR( float*, Dispersion );
-    for( int i=0; i < numPts; i++ )
+    float*  writeDirection = const_cast< float* >( Direction );
+    float*  writeDispersion = const_cast< float* >( Dispersion );
+    for( int i=0; i < numPts; ++i )
     {
         writeDirection[i] = 0.99f * Direction[i]; // -1 < g < +1
         writeDispersion[i] = 1.0f - Dispersion[i]; // 0 ≤ f ≤ 1
     }
+
+    // Get some shading context variable pointers.
+    const RtNormal3*  Nn;
+    const RtNormal3*  Ng;
+    const RtVector3*  Vn;
+    sCtx->GetBuiltinVar( RixShadingContext::k_Nn,  &Nn );
+    sCtx->GetBuiltinVar( RixShadingContext::k_Ngn, &Ng ); // wg
+    sCtx->GetBuiltinVar( RixShadingContext::k_Vn,  &Vn ); // wo
 
     // Point Orientation to Nn if it hasn't been set to anything.
     if( k_RixSCDefaultValue == pluginData->cinfoOrientation )
@@ -413,7 +358,7 @@ RixBxdf* BxdfFactory::BeginScatter
     // Otherwise, be sure its value is normalized.
     else
     {
-        RtNormal3*  writeOrientation = NON_CONST_PTR( RtNormal3*, Orientation );
+        RtNormal3*  writeOrientation = const_cast< RtNormal3* >( Orientation );
         for( int i=0; i < numPts; ++i ) writeOrientation[i].Normalize();
     }
 
@@ -426,7 +371,6 @@ RixBxdf* BxdfFactory::BeginScatter
     // Create an instance of this shader's bxdf closure
     // and pass any necessary data to it.
     BxdfClosure*  bxdf = new (mem) BxdfClosure( this, sCtx, lobesWanted,
-                                            pluginData,
                                             numPts,
                                             Gain,
                                             Color,
@@ -439,47 +383,8 @@ RixBxdf* BxdfFactory::BeginScatter
 
     return bxdf;
 }
-// Releases the RixBxdf object created by BeingScatter().
+// Releases the RixBxdf object created by BeginScatter().
 void BxdfFactory::EndScatter( RixBxdf* ) {}
-
-
-/*
-==============================================
-Returns a RixOpacity object that encapsulates
-this bxdf's presence and/or opacity behavior.
-==============================================
-*/
-RixOpacity* BxdfFactory::BeginOpacity
-(
-    const RixShadingContext* sCtx,
-    RixSCShadingMode         shadingMode,
-    void*                    parentData, // See RixBxdf.h
-    void*                    data // The per-instance data.
-)
-{
-    // This plugin's per-instance data.
-    auto  pluginData = static_cast< BxdfFactory::pluginInstanceData* >( data );
-
-    // Evaluate the Presence parameter and determine whether it is varying or uniform.
-    const float*  Presence = NULL;
-    bool  uniformPresence = false;
-
-    if( pluginData->poiHints & k_ComputesPresence )
-    {
-        RixSCDetail  detailPresence = sCtx->EvalParam( in_Presence, -1, &Presence, &def_Presence );
-        uniformPresence = k_RixSCUniform == detailPresence;
-    }
-
-    if( Presence )
-    {
-        RixShadingContext::Allocator  pool( sCtx );
-        void*  mem = pool.AllocForBxdf< PxrSurfaceOpacity >( 1 );
-        return  new (mem) PxrSurfaceOpacity( sCtx, this, Presence, NULL, uniformPresence );
-    }
-    else return NULL;
-}
-// Releases the RixOpacity object created by BeingOpacity().
-void BxdfFactory::EndOpacity( RixOpacity* ) {}
 
 
 /*

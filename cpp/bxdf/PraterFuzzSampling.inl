@@ -1,11 +1,20 @@
 /*
- *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *  Copyright 2022 LAIKA. Authored by Mitch J Prater.
  *
  *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
  *  or the MIT license http://opensource.org/licenses/MIT, at your option.
  *
  *  This program may not be copied, modified, or distributed except according to those terms.
  */
+/*  Implements:
+ *  
+ *      2022 Prater "fuzz" response.
+ *      Simulates the presence of a surface boundary layer consisting
+ *      of fibers oriented perpendicularly to the surface: e.g. velvet.
+ *      Originally developed in the 1990's, but has undergone continuous
+ *      revision since then. Unpublished.
+ */
+
 #include "prmanapi.h"
 #include "RiTypesHelper.h"
 
@@ -14,6 +23,7 @@
 #include "RixShading.h"
 #include "RixShadingUtils.h"
 
+#include <cmath>
 
 /*
  *  Defines the response sample methods of the RixBxdf object:
@@ -27,30 +37,24 @@
  *  Notation (vectors originate at the surface):
  *      wi - incident direction: the "light" direction. a.k.a. "incoming".
  *      wo - observer direction: the "view" direction. a.k.a. "outgoing".
- *      wg - the geometric (modeled surface) normal.
- *      ws - surface shading normal. possibly "bumped" relative to wg.
- *      wn - response computation normal. generally equivalent to ws.
- *      Cs - the substance's characteristic (un-lit) coloration (spectrum).
- *      Cr - the response color & magnitude (spectrum*intensity).
- *      W  - the response weight.
+ *      wg - the geometric (modeled + displaced surface) normal.
+ *      wn - surface shading normal. possibly "bumped" relative to wg.
+ *      Cs - the substance's characteristic (un-lit) coloration (albedo).
+ *      Cr - the response color & magnitude (albedo*intensity).
+ *      w  - the response weight (intensity).
  *      fPdf - forward pdf: probability of light moving from wi toward wo.
  *      rPdf - reverse pdf: probability of light moving from wo toward wi.
+ *      Unless otherwise noted:
+ *      θ - spherical coordinate polar angle from +z (the surface normal).
+ *      φ - spherical coordinate azimuth angle around z.
  */
 
-
-//===================================================================
-//  2022 Prater "fuzz" response function.
-//  Simulates the presence of a surface boundary layer consisting
-//  of fibers oriented perpendicularly to the surface: e.g. velvet.
-//  Originally developed in the 1990's, but has undergone continuous
-//  revision since then. Unpublished.
-//===================================================================
-PRMAN_INLINE
+inline
 float PraterFuzzResponse
 (
     const float  g, // Direction: -1 < g < +1
     const float  f, // 1-Dispersion: 0 ≤ f ≤ 1
-    const float  cos_theta, // Θ = wi ∠ wo
+    const float  cos_theta, // Phase angle Θ = wi ∠ wo
     const float  cos_wnwi,
     const float  cos_wnwo
 )
@@ -81,7 +85,7 @@ float PraterFuzzResponse
 // Compute the response normalization for the entire (spherical domain)
 // response lobe for the given parameters g, f, and cos_wnwi.
 // Iterpolation provided by Per Christensen, Nov. 2023. Thanks Per!
-PRMAN_INLINE
+inline
 float PraterFuzzNormalize
 (
     const float  _g,
@@ -390,86 +394,54 @@ float PraterFuzzNormalize
     return 1.0f / integral;
 }
 
-PRMAN_INLINE
-void PraterFuzzPdf
-(
-    const float  g, // -1 < g < +1 : Direction
-    const float  f, //  0 ≤ f ≤ 1  : 1-Dispersion
-    const float  cos_theta, // Θ = wi ∠ wo
-    const float  cos_wnwi,
-    const float  cos_wnwo,
-    // Results:
-    float&  fPdf,
-    float&  rPdf,
-    float&  W
-)
-{
-    W = PraterFuzzResponse( g, f, cos_theta, cos_wnwi, cos_wnwo ) * PraterFuzzNormalize( g, f, cos_wnwi );
-    
-    // Volume scattering, so we don't scale by projected solid angle.
-    // fPdf = W * cos_wgwi;
-    // rPdf = W * cos_wgwo;
-    rPdf = fPdf = W;
-}
-
-PRMAN_INLINE
+inline
 void PraterFuzz
 (
+    const RtColorRGB  Cs,
     const float  g,
     const float  f,
-    const float  cos_theta,
+    const float  cos_theta, // Phase angle Θ = wi ∠ wo
     const float  cos_wnwi,
     const float  cos_wnwo,
-    const RtColorRGB  Cs,
+
     // Results:
     float&  fPdf,
     float&  rPdf,
-    RtColorRGB& Cr
+    RtColorRGB&  Cr
 )
 {
-    float  W;
-    PraterFuzzPdf( g, f, cos_theta, cos_wnwi, cos_wnwo, fPdf, rPdf, W );
-    Cr = Cs * W;
+    // Response.
+    float  w = PraterFuzzResponse( g, f, cos_theta, cos_wnwi, cos_wnwo ) * PraterFuzzNormalize( g, f, cos_wnwi );
+    Cr = Cs * w;
+
+    // Pdf. This must match the sampling distribution, not the response function.
+    // This is because Generate() and Evaluate() must report the same pdf for a
+    // given sample direction to ensure their results are consistent with each other.
+    // But regardless of what samples are used for integration, the response itself
+    // is always evaluated using the bxdf's normalized response function.
+    //
+    // The sample generation produces a distribution whose pdf is 1/(4π√cosθ).
+    fPdf = F_INVFOURPI / std::sqrt( std::max( 0.000001f, cos_wnwi ));
+    rPdf = F_INVFOURPI / std::sqrt( std::max( 0.000001f, cos_wnwo ));
 }
 
-PRMAN_INLINE
-bool Evaluate
-(
-    const float  g,
-    const float  f,
-    const RtNormal3  wg,
-    const RtVector3  wn,
-    const RtVector3  wo,
-    const RtVector3  wi,
-    const RtColorRGB Cs,
-    // Results:
-    float&  fPdf,
-    float&  rPdf,
-    RtColorRGB& Cr
-)
-{
-    // Test the observer and incident visibility.
-    if( wg.Dot(wo) < 0.00001f ) return false;
-    if( wg.Dot(wi) < 0.00001f ) return false;
 
-    const float  cos_theta = wi.Dot(wo);
-    const float  cos_wnwi = wn.Dot(wi);
-    const float  cos_wnwo = wn.Dot(wo);
-
-    PraterFuzz( g, f, cos_theta, cos_wnwi, cos_wnwo, Cs, fPdf, rPdf, Cr );
-    return true;
-}
-
-PRMAN_INLINE
+//===================================================================
+// Generate() and Evaluate() connect the response functions above to
+// the API methods below. They also perform any necessary visibility
+// or other sanity checks and can bypass a sample if necessary.
+//===================================================================
+inline
 bool Generate
 (
+    const RtColorRGB Cs,
     const float  g,
     const float  f,
+    const RtNormal3  wn,
     const RtNormal3  wg,
-    const RtVector3  wn,
     const RtVector3  wo,
     const RtFloat2   xi,
-    const RtColorRGB Cs,
+
     // Results:
     RtVector3&  wi,
     float&  fPdf,
@@ -478,24 +450,58 @@ bool Generate
 )
 {
     // Test the observer visibility.
-    if( wg.Dot(wo) < 0.00001f ) return false;
+    //if( wg.Dot(wo) < 0.00001f ) return false;
 
     // Generate an incident sample direction (wi).
     RtVector3  wt, wb;
-    wg.CreateOrthonormalBasis( wt, wb );
+    wn.CreateOrthonormalBasis( wt, wb );
 
+    // Squaring xi[1] gives more importance to samples near the
+    // horizon and produces a distribution with a pdf of 1/(4π√cosθ).
+    // Note this is not equivalent to the upper half of a horn torus
+    // (sliced bagel) sampling distribution. But it is much easier
+    // to generate and produces good results for the fuzz response.
+    const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] );
     float  dummy;
-    const RtFloat2  newXi = RtFloat2( xi[0], xi[1]*xi[1] ); // half dipole lobe distribution: sliced bagel.
-    RixUniformDirectionalDistribution( newXi, wg, wt, wb, wi, dummy );
+    RixUniformDirectionalDistribution( newXi, wn, wt, wb, wi, dummy );
 
     // Test the incident sample visibility: reject those below the horizon.
-    // if( wg.Dot(wi) < 0.00001f ) return false;
+    //if( wg.Dot(wi) < 0.00001f ) return false;
 
     const float  cos_theta = wi.Dot(wo);
     const float  cos_wnwi = wn.Dot(wi);
     const float  cos_wnwo = wn.Dot(wo);
 
-    PraterFuzz( g, f, cos_theta, cos_wnwi, cos_wnwo, Cs, fPdf, rPdf, Cr );
+    PraterFuzz( Cs, g, f, cos_theta, cos_wnwi, cos_wnwo, fPdf, rPdf, Cr );
+    return true;
+}
+
+inline
+bool Evaluate
+(
+    const RtColorRGB Cs,
+    const float  g,
+    const float  f,
+    const RtNormal3  wn,
+    const RtNormal3  wg,
+    const RtVector3  wo,
+    const RtVector3  wi,
+
+    // Results:
+    float&  fPdf,
+    float&  rPdf,
+    RtColorRGB&  Cr
+)
+{
+    // Test the observer and incident visibility.
+    //if( wg.Dot(wo) < 0.00001f ) return false;
+    //if( wg.Dot(wi) < 0.00001f ) return false;
+
+    const float  cos_theta = wi.Dot(wo);
+    const float  cos_wnwi = wn.Dot(wi);
+    const float  cos_wnwo = wn.Dot(wo);
+
+    PraterFuzz( Cs, g, f, cos_theta, cos_wnwi, cos_wnwo, fPdf, rPdf, Cr );
     return true;
 }
 
@@ -527,7 +533,7 @@ void GenerateSample
 
     RtColorRGB*  PraterFuzzWeight = NULL;
 
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         lobeGenerated[i].SetValid( false );
 
@@ -538,15 +544,15 @@ void GenerateSample
         if( doPraterFuzz )
         {
             const RtColorRGB Cs = Color[i]*Gain[i];
+            const float  g = Direction[i];
+            const float  f = Dispersion[i];
             const RtNormal3  wn = Orientation[i];
             const RtNormal3  wg = Ng[i];
             const RtVector3  wo = Vn[i];
-            const float  g = Direction[i];
-            const float  f = Dispersion[i];
 
             if( !PraterFuzzWeight ) PraterFuzzWeight = lobeWeights.AddActiveLobe( sg_PraterFuzz_LS );
 
-            if( Generate( g, f, wg, wn, wo, xi[i], Cs, wi[i], fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
+            if( Generate( Cs, g, f, wn, wg, wo, xi[i], wi[i], fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
             {
                 lobeGenerated[i] = sg_PraterFuzz_LS;
             }
@@ -577,7 +583,7 @@ void EvaluateSample
 
     RtColorRGB*  PraterFuzzWeight = NULL;
 
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         lobesEvaluated[i].SetNone();
 
@@ -588,15 +594,15 @@ void EvaluateSample
         if( doPraterFuzz )
         {
             const RtColorRGB Cs = Color[i]*Gain[i];
+            const float  g = Direction[i];
+            const float  f = Dispersion[i];
             const RtNormal3  wn = Orientation[i];
             const RtNormal3  wg = Ng[i];
             const RtVector3  wo = Vn[i];
-            const float  g = Direction[i];
-            const float  f = Dispersion[i];
 
             if( !PraterFuzzWeight ) PraterFuzzWeight = lobeWeights.AddActiveLobe( sg_PraterFuzz_LS );
 
-            if( Evaluate( g, f, wg, wn, wo, wi[i], Cs, fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
+            if( Evaluate( Cs, g, f, wn, wg, wo, wi[i], fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
             {
                 lobesEvaluated[i] |= sg_PraterFuzz_LT;
             }
@@ -633,20 +639,20 @@ void EvaluateSamplesAtIndex
     RtColorRGB*  PraterFuzzWeight = NULL;
     if( doPraterFuzz ) PraterFuzzWeight = lobeWeights.AddActiveLobe( sg_PraterFuzz_LS );
 
-    for( int i=0; i < nSamps; i++ )
+    for( int i=0; i < nSamps; ++i )
     {
         lobesEvaluated[i].SetNone();
 
         if( doPraterFuzz )
         {
             const RtColorRGB Cs = Color[scIndex]*Gain[scIndex];
+            const float  g = Direction[scIndex];
+            const float  f = Dispersion[scIndex];
             const RtNormal3  wn = Orientation[scIndex];
             const RtNormal3  wg = Ng[scIndex];
             const RtVector3  wo = Vn[scIndex];
-            const float  g = Direction[scIndex];
-            const float  f = Dispersion[scIndex];
 
-            if( Evaluate( g, f, wg, wn, wo, wi[i], Cs, fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
+            if( Evaluate( Cs, g, f, wn, wg, wo, wi[i], fPdf[i], rPdf[i], PraterFuzzWeight[i] ))
             {
                 lobesEvaluated[i] |= sg_PraterFuzz_LT;
             }

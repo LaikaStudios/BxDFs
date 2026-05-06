@@ -3,7 +3,7 @@
 # Surface Boundary Layer Responses
 
 This class of response simulates a thin volume of scattering media at the surface of an object:
-super-surface scattering, as opposed to sub-surface scattering.
+supra-surface scattering, as opposed to sub-surface scattering.
 The inherent properties of different types of scattering media account for the different BxDF response types.
 
 The supplied source code produces the given reflected light response in isolation, whereas these are meant to be used in concert with other responses to produce a complete material response aggregate.
@@ -17,9 +17,12 @@ An even better solution would be to incorporate them into a modular response agg
 In addition, given their nature, the transmitted portion of scattered light could be calculated and passed to the underlying surface responses as part of its vertical layering in a combined set of material response strata.
 This computation has not yet been implemented in these versions, so as-is their use is limited to horizontal layering (i.e. mixing/blending) when combined with other responses.
 
-First developed at [Pixar](https://www.pixar.com) in the early 1990s for the [REYES](https://dl.acm.org/doi/10.1145/37402.37414) architecture using the [RenderMan Shading Language](https://renderman.pixar.com/resources/RenderMan_20/shadingLanguage.html),
+First developed at [Pixar](https://www.pixar.com) in the early 1990s for the
+[REYES](https://dl.acm.org/doi/10.1145/37402.37414) architecture using the
+[RenderMan Shading Language](https://dl.acm.org/doi/10.1145/97880.97911),
 the [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter) models have never been published.
-Since their initial creation they have undergone continuous evolution and periodic transformation as [RenderMan](https://renderman.pixar.com/)'s capabilities and implementation details have evolved. 
+Since their initial creation they have undergone continuous evolution and periodic transformation as
+[RenderMan](https://renderman.pixar.com/)'s capabilities and implementation details have evolved. 
 
 These most recent incarnations were developed in concert so they each use the same simple and intuitive *Direction* and *Dispersion* control parameters.
 *Direction* is analogous to the Henyey-Greenstein[<sup>1</sup>](#references) *g* parameter,
@@ -31,7 +34,7 @@ Other responses are provided as points of comparison.
 
 1. [Fuzz](#fuzz)
     1. [Prater Fuzz](#prater-fuzz)
-    1. [Koenderink-Pont Velvet](#koenderink-pont-velvet)
+    1. [Koenderink-Pont Asperity](#koenderink-pont-asperity)
     1. [Conty-Kulla Sheen](#conty-kulla-sheen)
 1. [Scatter](#scatter)
     1. [Prater Scatter](#prater-scatter)
@@ -55,11 +58,9 @@ Large scale variation in the orientation of the fibers produces one of this resp
 [Prater Fuzz](../cpp/bxdf/PraterFuzzSampling.inl)
 is an empirical response based on my observations. Its primary goal is to provide both realism and a wide range of intuitive artistic control.
 
-Response sampling is done using the upper half of a toroidal sample distribution: a sliced bagel.
+Response sampling is done using modified uniform distribution which gives more importance to samples near the horizon and fewer at the zenith. 
 This produces far better noise and convergence behavior than simple uniform 
 sampling which, as pointed out in *Production Friendly Microfacet Sheen BRDF*[ <sup>3</sup>](#references), is not so bad to begin with.
-I believe this is a previously undescribed general sampling distribution,
-one which is extremely well suited to [Fuzz](#fuzz) response types.
 
 Beginning in 2017, a few response models in this category have been introduced.
 An examination of these is contained in the
@@ -72,7 +73,7 @@ There are also various hair and fur models that have the potential to be applied
 
 [Top](#Top)
 
-## Koenderink-Pont Velvet
+## Koenderink-Pont Asperity
 ![Koenterink-Pont](./media/KoenderinkPontVelvet.jpg)
 
 Created in 2002, *The Secret of Velvety Skin* [<sup>5</sup>](#references)
@@ -81,7 +82,7 @@ The paper also includes some interesting observations about human visual percept
 However, comparisons with [Prater Fuzz](#prater-fuzz) showed this response function to be inferior in both appearance and range of control.
 Also, it only produces forward scattering, so it is useful primarily as a "rim" backlighting effect.
 
-Its implementation uses uniform sample generation, which is entirely adequate for making visual quality and usability assessments.
+Its implementation uses a modified uniform sample distribution, which gives more importance to samples near the horizon, and fewer at the zenith. 
 
 Other papers from this time period that addressed this response type are *Predicting Reflectance Functions from Complex Surfaces* [<sup>6</sup>](#references) and *A Microfacet-Based BRDF Generator* [<sup>7</sup>](#references).
 However, the former was not a practical method for production use,
@@ -100,7 +101,7 @@ this microfacet distribution model is designed to simulate the back-scattering p
 Rather than providing an implementation of this response, I rely on the existing [LamaSheen](https://rmanwiki.pixar.com/display/REN/LamaSheen) node from [RenderMan](https://rmanwiki.pixar.com/display/REN), which I'm told implements this response model.
 
 Given its lack of forward scattering and general absence of any secondary scattering effects in its appearance,
-I find this response to be inferior to [Prater Fuzz](#prater-fuzz). However, it's clearly not without merit. In particular, combinations of this and [Koenderink-Pont Velvet](#koenderink-pont-velvet) could be useful.
+I find this response to be inferior to [Prater Fuzz](#prater-fuzz). However, it's clearly not without merit. In particular, combinations of this and [Koenderink-Pont Asperity](#koenderink-pont-asperity) could be useful.
 
 [Top](#Top)
 
@@ -155,9 +156,13 @@ These deficiencies were the original impetus for developing the [Prater Scatter]
 
 The [Prater Fuzz](#prater-fuzz) and [Prater Scatter](#prater-scatter)
 response functions have been around for many years and have withstood the test of time over the course of many productions.
-While microfacet and microflake models have become de rigueur for being considered physically based, the once ubiquitous empirical response function has largely been relegated to the ash heap of history.
+Their most recent use is described in *Reaslistic Woven Cloth Shading* [<sup>9</sup>](#references).
+
+While microfacet and microflake models have become de rigueur for their theoretical foundations,
+the once ubiquitous empirical response model has largely been relegated to the ash heap of history.
 This, I believe, is a mistake.
-Empirical models have the ability to be tailored for their results alone, and thus provide for a far greater range of expression and potential for matching reality as we actually perceive it rather than how we imagine it to be.
+Empiricism is the foundation of all scientific inquiry.
+In addition, empirical models have the ability to be tailored for their results alone, and thus provide for a far greater range of expression and potential for matching reality as we actually perceive it rather than how we imagine it to be.
 And as these response implementations prove, the modern rendering requirements of energy conservation and fast execution do not preclude the use of such models, or the use of inexact sample generation distributions.
 
 # References
@@ -166,18 +171,20 @@ And as these response implementations prove, the modern rendering requirements o
 
 2. Sloane, N. J. A. ; et. al. *Tables of Spherical Codes with Icosahedral Symmetry*. 1994. Published electronically at http://NeilSloane.com/icosahedral.codes
 
-2. Conty, Alejandro ; Kulla, Christopher. *Production Friendly Microfacet Sheen BRDF*. 2017. ACM SIGGRAPH Course: *Physically Based Shading in Theory and Practice*, Article 7, p. 1-8. https://doi.org/10.1145/3084873.3084893
+3. Conty, Alejandro ; Kulla, Christopher. *Production Friendly Microfacet Sheen BRDF*. 2017. ACM SIGGRAPH Course: *Physically Based Shading in Theory and Practice*, Article 7, p. 1-8. https://doi.org/10.1145/3084873.3084893
 
-3. Zeltner, Tizian ; et. al. *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*. 2022. ACM SIGGRAPH Talks, Article 7, p. 1-2. https://doi.org/10.1145/3532836.3536240
+4. Zeltner, Tizian ; et. al. *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*. 2022. ACM SIGGRAPH Talks, Article 7, p. 1-2. https://doi.org/10.1145/3532836.3536240
 
-4. Koenderink, Jan ; Pont, Sylvia. *The Secret of Velvety Skin*. 2003. Machine Vision and Applications, Vol. 14, p. 260-268. https://doi.org/10.1007/s00138-002-0089-7
+5. Koenderink, Jan ; Pont, Sylvia. *The Secret of Velvety Skin*. 2003. Machine Vision and Applications, Vol. 14, p. 260-268. https://doi.org/10.1007/s00138-002-0089-7
 
-5. Westin, Stephen H. ; et. al. *Predicting Reflectance Functions from Complex Surfaces*. 1992. Proceedings of the 19th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH '92), p. 255-264. https://doi.org/10.1145/133994.134075
+6. Westin, Stephen H. ; et. al. *Predicting Reflectance Functions from Complex Surfaces*. 1992. Proceedings of the 19th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH '92), p. 255-264. https://doi.org/10.1145/133994.134075
 
-6. Ashikmin, Michael ; et. al. *A Microfacet-Based BRDF Generator*. 2000. Proceedings of the 27th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH '00), p. 65-74. https://doi.org/10.1145/344779.344814
+7. Ashikmin, Michael ; et. al. *A Microfacet-Based BRDF Generator*. 2000. Proceedings of the 27th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH '00), p. 65-74. https://doi.org/10.1145/344779.344814
 
-7. Jendersie, Johannes ; et. al. *An Approximate Mie Scattering Function for Fog and Cloud Rendering*. 2023. ACM SIGGRAPH Talks, Article 47, p. 1-2. https://doi.org/10.1145/3587421.3595409
+8. Jendersie, Johannes ; et. al. *An Approximate Mie Scattering Function for Fog and Cloud Rendering*. 2023. ACM SIGGRAPH Talks, Article 47, p. 1-2. https://doi.org/10.1145/3587421.3595409
   
+9. Prater, Mitch J. *Realistic Woven Cloth Shading*. 2025. Proceedings of the Digital Production Symposium (DigiPro '25), Article 2, p. 1–11. https://doi.org/10.1145/3744199.3744633
+
 [Top](#Top)
 
 # Parameter Wedge Images

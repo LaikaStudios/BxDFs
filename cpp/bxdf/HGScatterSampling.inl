@@ -1,11 +1,19 @@
 /*
- *  Copyright 2022-2023 LAIKA. Authored by Mitch Prater.
+ *  Copyright 2022 LAIKA. Authored by Mitch J Prater.
  *
  *  Licensed under the Apache License Version 2.0 http://apache.org/licenses/LICENSE-2.0,
  *  or the MIT license http://opensource.org/licenses/MIT, at your option.
  *
  *  This program may not be copied, modified, or distributed except according to those terms.
  */
+/*  Implements:
+ *  
+ *      1941 Henyey-Greenstein "scatter" response.
+ *      Henyey, Louis G. and Greenstein, Jesse L.
+ *      Astrophysical Journal, Vol. 93, p. 70-83 (1941)
+ *      http://dx.doi.org/10.1086/144246
+ */
+
 #include "prmanapi.h"
 #include "RiTypesHelper.h"
 
@@ -14,6 +22,7 @@
 #include "RixShading.h"
 #include "RixShadingUtils.h"
 
+#include <cmath>
 
 /*
  *  Defines the response sample methods of the RixBxdf object:
@@ -27,32 +36,28 @@
  *  Notation (vectors originate at the surface):
  *      wi - incident direction: the "light" direction. a.k.a. "incoming".
  *      wo - observer direction: the "view" direction. a.k.a. "outgoing".
- *      wg - the geometric (modeled surface) normal.
- *      ws - surface shading normal. possibly "bumped" relative to wg.
- *      wn - response computation normal. generally equivalent to ws.
- *      Cs - the substance's characteristic (un-lit) coloration (spectrum).
- *      Cr - the response color & magnitude (spectrum*intensity).
- *      W  - the response weight.
+ *      wg - the geometric (modeled + displaced surface) normal.
+ *      wn - surface shading normal. possibly "bumped" relative to wg.
+ *      Cs - the substance's characteristic (un-lit) coloration (albedo).
+ *      Cr - the response color & magnitude (albedo*intensity).
+ *      w  - the response weight (intensity).
  *      fPdf - forward pdf: probability of light moving from wi toward wo.
  *      rPdf - reverse pdf: probability of light moving from wo toward wi.
+ *      Unless otherwise noted:
+ *      θ - spherical coordinate polar angle from +z (the surface normal).
+ *      φ - spherical coordinate azimuth angle around z.
  */
 
-
-//===================================================
-//  Henyey-Greenstein response.
-//  Astrophysical Journal, Vol. 93, p. 70-83 (1941)
-//  http://dx.doi.org/10.1086/144246
-//===================================================
-PRMAN_INLINE
+inline
 void HenyeyGreensteinPdf
 (
-    const RtFloat  g, // [-1,1]
-    const RtFloat  cos_wowi, // ≡ cos(Θ) [-1,1]
-    const RtFloat  cos_wnwi, // [0,1]
+    const float  g, // (-1,1); |g| ⇒ 1 is not very usable.
+    const float  cos_wowi, // cos(θ); phase angle Θ = wo ∠ wi
+
     // Results:
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
-    RtFloat&  W
+    float&  fPdf,
+    float&  rPdf,
+    float&  w
 )
 {
     const float  one_plus_g2 = 1.0f + g*g;
@@ -61,19 +66,19 @@ void HenyeyGreensteinPdf
     // wo (Vn) is inverted with respect to the original HG phase function definition.
     // Using -cos_wowi here so that positive g produces forward scattering as intended.
     // Also, settting γ = Ι = 1: spherical albedo = diffuse intensity = 1.
-    const float  pdf = ( one_minus_g2*F_INVFOURPI ) / pow( one_plus_g2 + 2.0f*g*cos_wowi, 1.5f );
+    const float  pdf = ( one_minus_g2*F_INVFOURPI ) / std::pow( one_plus_g2 + 2.0f*g*cos_wowi, 1.5f );
 
-    rPdf = fPdf = W = pdf;
+    rPdf = fPdf = w = pdf;
 }
 
-PRMAN_INLINE
+inline
 float HenyeyGreensteinInvCdf
 (
-    const RtFloat  g, // g ≠ 0.
-    const RtFloat  xi // [0,1]
+    const float  g, // g ≠ 0.
+    const float  xi // [0,1)
 )
 {
-    // Inverse CDF for HG cos(Θ); Θ = wo ∠ wi.
+    // Inverse CDF for HG cos(Θ); phase angle Θ = wo ∠ wi.
     const float  two_g = 2.0f*g;
     const float  g2 = g*g;
 
@@ -85,65 +90,47 @@ float HenyeyGreensteinInvCdf
     return -cos_theta;
 }
 
-PRMAN_INLINE
-bool HenyeyGreensteinEval
+inline
+bool HenyeyGreenstein
 (
     const RtColorRGB  Cs,
-    const RtFloat  g,
-    const RtFloat  cos_wowi,
-    const RtFloat  cos_wnwi,
+    const float  g,
+    const float  cos_wowi,
+
     // Results:
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
+    float&  fPdf,
+    float&  rPdf,
     RtColorRGB& Cr
 )
 {
     // Test the incident view factor (observer view factor tested prior to calling).
-    if( cos_wnwi < 0.00001f ) return false;
+    //if( cos_wnwi < 0.00001f ) return false;
 
-    RtFloat  W;
-    HenyeyGreensteinPdf( g, cos_wowi, cos_wnwi, fPdf, rPdf, W );
-    Cr = Cs * W;
+    float  w;
+    HenyeyGreensteinPdf( g, cos_wowi, fPdf, rPdf, w );
+    Cr = Cs * w;
 
     return true;
 }
 
-PRMAN_INLINE
-bool Evaluate
-(
-    const RtColorRGB  Cs,
-    const RtFloat  g,
-    const RtNormal3  wn,
-    const RtVector3  wo,
-    const RtVector3  wi,
-    // Results:
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
-    RtColorRGB& Cr
-)
-{
-    // Test the observer view factor.
-    const float  cos_wnwo = wn.Dot(wo);
-    if( cos_wnwo < 0.00001f ) return false;
 
-    const float  cos_wowi = wo.Dot(wi);
-    const float  cos_wnwi = wn.Dot(wi);
-
-    return HenyeyGreensteinEval( Cs, g, cos_wowi, cos_wnwi, fPdf, rPdf, Cr );
-}
-
-PRMAN_INLINE
+//===================================================================
+// Generate() and Evaluate() connect the response functions above to
+// the API methods below. They also perform any necessary visibility
+// or other sanity checks and can bypass a sample if necessary.
+//===================================================================
+inline
 bool Generate
 (
     const RtColorRGB Cs,
-    const RtFloat     g,
+    const float     g,
     const RtNormal3  wn,
     const RtVector3  wo,
     const RtFloat2   xi,
     // Results:
     RtVector3&  wi,
-    RtFloat&  fPdf,
-    RtFloat&  rPdf,
+    float&  fPdf,
+    float&  rPdf,
     RtColorRGB& Cr
 )
 {
@@ -152,7 +139,7 @@ bool Generate
     if( cos_wnwo < 0.00001f ) return false;
 
     // Generate an incident sample direction (wi) and its view factor.
-    RtFloat  cos_theta;
+    float  cos_theta;
 
     if( std::abs(g) < 0.001f ) // Isotropic.
     {
@@ -175,28 +162,40 @@ bool Generate
     }
 
     const float  cos_wowi = wo.Dot(wi);
-    const float  cos_wnwi = wn.Dot(wi);
 
-    return HenyeyGreensteinEval( Cs, g, cos_wowi, cos_wnwi, fPdf, rPdf, Cr );
+    return HenyeyGreenstein( Cs, g, cos_wowi, fPdf, rPdf, Cr );
+}
+
+inline
+bool Evaluate
+(
+    const RtColorRGB  Cs,
+    const float  g,
+    const RtNormal3  wn,
+    const RtVector3  wo,
+    const RtVector3  wi,
+    // Results:
+    float&  fPdf,
+    float&  rPdf,
+    RtColorRGB& Cr
+)
+{
+    // Test the observer view factor.
+    const float  cos_wnwo = wn.Dot(wo);
+    if( cos_wnwo < 0.00001f ) return false;
+
+    const float  cos_wowi = wo.Dot(wi);
+
+    return HenyeyGreenstein( Cs, g, cos_wowi, fPdf, rPdf, Cr );
 }
 
 
-//======================
-//  EmitLocal function.
-//======================
-//
-//  Provides this bxdf's baked (pre-integrated) illumination
-//  response and/or light emission results (in this case, none).
-//
-bool EmitLocal( RtColorRGB* ) { return false; }
-
-
-//======================================
-//  Evaluate/Generate Sample functions.
-//======================================
-//
-//  Compute this bxdf's response to incoming light rays.
-//
+/*
+================================================================
+GenerateSample() provides the integrator with a shading context
+set of samples generated from this bxdf's response lobe(s).
+================================================================
+*/
 void EvaluateSample
 (
     RixBXTransportTrait     transportTrait, // Direct, indirect, or both bit field.
@@ -206,8 +205,8 @@ void EvaluateSample
     const RtVector3*        wi, // incoming sample direction per shading context point.
     // Evaluated results:
     RixBXLobeWeights&       lobeWeights, // sample weight.
-    RtFloat*                fPdf, // forward pdf.
-    RtFloat*                rPdf  // reverse pdf.
+    float*                  fPdf, // forward pdf.
+    float*                  rPdf  // reverse pdf.
 )
 {
     // Get all the responses this bxdf closure instance might need to generate.
@@ -221,7 +220,7 @@ void EvaluateSample
     RtColorRGB*  HGScatterWeight = NULL;
 
     // For each point in the shading context, evaluate its response.
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         // Initialize this shaded point to no generated response.
         lobesEvaluated[i].SetNone();
@@ -238,7 +237,7 @@ void EvaluateSample
         {
             // Initialize any data needed to compute the response.
             const RtColorRGB Cs = Color[i]*Gain[i];
-            const RtFloat     g = 0.95f * Direction[i]; // |g| ⇒ 1 is not very usable.
+            const float       g = Direction[i];
             const RtNormal3  wn = Nn[i];
             const RtVector3  wo = Vn[i];
 
@@ -268,11 +267,11 @@ void EvaluateSamplesAtIndex
     int                     scIndex, // shading context point to evaluate.
     int                     nSamps, // number of samples to evaluate.
     RixBXLobeTraits*        lobesEvaluated, // Returned value.
-    const RtVector3*        wi, // nSamps incoming sample direction array.
+    const RtVector3*        wi, // nSamps incoming sample directions.
     // Evaluated results:
     RixBXLobeWeights&       lobeWeights, // sample weight.
-    RtFloat*                fPdf, // forward pdf.
-    RtFloat*                rPdf  // reverse pdf.
+    float*                  fPdf, // forward pdf.
+    float*                  rPdf  // reverse pdf.
 )
 {
     // Get all the responses this bxdf closure instance might need to generate.
@@ -287,7 +286,7 @@ void EvaluateSamplesAtIndex
     RtColorRGB*  HGScatterWeight = NULL;
 
     // For the indexed sample in the shading context, evaluate the response nSamps times.
-    for( int i=0; i < nSamps; i++ )
+    for( int i=0; i < nSamps; ++i )
     {
         // Initialize this shaded point to an invalid generated lobe.
         lobesEvaluated[i].SetNone();
@@ -307,7 +306,7 @@ void EvaluateSamplesAtIndex
 
             // Initialize any data needed to compute the response.
             const RtColorRGB Cs = Color[scIndex]*Gain[scIndex];
-            const RtFloat     g = 0.95f * Direction[i]; // |g| ⇒ 1 is not very usable.
+            const float       g = Direction[i];
             const RtNormal3  wn = Nn[scIndex];
             const RtVector3  wo = Vn[scIndex];
 
@@ -336,8 +335,8 @@ void GenerateSample
     RixBXLobeSampled*       lobeGenerated, // which lobe type was generated.
     RtVector3*              wi, // incoming sample direction per shading context point.
     RixBXLobeWeights&       lobeWeights, // response weights.
-    RtFloat*                fPdf, // forward pdf.
-    RtFloat*                rPdf, // reverse pdf.
+    float*                  fPdf, // forward pdf.
+    float*                  rPdf, // reverse pdf.
     RtColorRGB*             compTrans // compositing transparency (PRMan "Oi")?
 )
 {
@@ -357,7 +356,7 @@ void GenerateSample
     RtColorRGB*  HGScatterWeight = NULL;
 
     // For each point in the shading context, generate a sample (wi) if necessary.
-    for( int i=0; i < numPts; i++ )
+    for( int i=0; i < numPts; ++i )
     {
         // Initialize this shaded point to an invalid generated response.
         lobeGenerated[i].SetValid( false );
@@ -377,7 +376,7 @@ void GenerateSample
 
             // Initialize any data needed to compute the response.
             const RtColorRGB Cs = Color[i]*Gain[i];
-            const RtFloat     g = 0.95f * Direction[i]; // |g| ⇒ 1 is not very usable.
+            const float       g = Direction[i];
             const RtNormal3  wn = Nn[i];
             const RtVector3  wo = Vn[i];
 
@@ -391,3 +390,11 @@ void GenerateSample
         }
     }
 }
+
+/*
+======================================================================
+EmitLocal() produces a shading context set of this bxdf's baked
+(pre-integrated) illumination responses and/or light emission results.
+======================================================================
+*/
+bool EmitLocal( RtColorRGB* ) { return false; } // None in this case.

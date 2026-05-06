@@ -56,7 +56,7 @@
     <param name = "Direction"
         type = "float"
         slider = "true" slidermin = "-1.0" slidermax = "1.0" slidersensitivity = "0.05"
-        default = "-0.5">
+        default = "0.0">
         <tags> <tag value = "float"/> </tags>
         <help>
             Controls the degree of forward to backward scattering.
@@ -82,34 +82,6 @@
             which is a function of both the randomness of the fibers' orientations
             and the shininess of their material.
             Analogous to the Roughness parameter used in other response types.
-        </help>
-    </param>
-
-    <param name = "Presence"
-        readOnly = "true"
-        type = "float"
-        default = "1.0">
-        <tags> <tag value = "float"/> </tags>
-        <help>
-            <b>Presence</b> can be used to cut away portions of the surface:
-            <br/>
-            <br/><i>0</i> results in no surface.
-            <br/><i>1</i> leaves the surface alone.
-            <p>
-            This value should ideally be binary: <i>0</i> or <i>1.</i>
-            Values between 0 and 1 will produce more sampling noise.
-            </p>
-        </help>
-    </param>
-
-    <param name = "Socket"
-        readOnly = "true"
-        type = "int"
-        default = "0">
-        <tags> <tag value = "int"/> </tags>
-        <help>
-            Connect a shading node's <b>Plug</b> output here in order
-            to execute that node and any shading tree connected to it.
         </help>
     </param>
 </args>
